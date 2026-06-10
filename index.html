@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>디지털 원장 · 송파구 대형폐기물</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+:root{
+  --blue:#1a56db;--blue-d:#1344b8;--blue-l:#e8f0fe;
+  --green:#16a34a;--green-l:#dcfce7;
+  --red:#dc2626;--red-l:#fee2e2;
+  --yellow:#d97706;--yellow-l:#fef3c7;
+  --purple:#7c3aed;--purple-l:#ede9fe;
+  --orange:#ea580c;--orange-l:#fff7ed;
+  --gray:#6b7280;--gray-l:#f3f4f6;
+  --border:#e5e7eb;--text:#111827;--white:#fff;
+  --font:'Noto Sans KR',-apple-system,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:#f0f4f8;color:var(--text);min-height:100vh;}
+
+/* 헤더 */
+.hdr{background:var(--blue);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.hdr-title{font-size:18px;font-weight:900;color:#fff;}
+.conn-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#9ca3af;flex-shrink:0;}
+.conn-dot.online{background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3);}
+.conn-dot.offline{background:#f87171;}
+.conn-dot.loading{background:#fbbf24;animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* 탭 네비 */
+.tab-nav{background:var(--white);border-bottom:2px solid var(--border);display:flex;overflow-x:auto;position:sticky;top:0;z-index:90;}
+.tab-nav::-webkit-scrollbar{display:none;}
+.nav-tab{padding:14px 20px;font-size:14px;font-weight:800;cursor:pointer;border:none;background:none;font-family:var(--font);color:var(--gray);white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.nav-tab.on{color:var(--blue);border-bottom-color:var(--blue);}
+
+/* 섹션 */
+.section{display:none;max-width:1400px;margin:0 auto;padding:20px 16px 80px;}
+.section.on{display:block;}
+
+/* 카드 */
+.card{background:var(--white);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:800;color:var(--gray);margin-bottom:14px;}
+
+/* 업로드 3열 */
+.upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media(max-width:700px){.upload-grid{grid-template-columns:1fr;}}
+.upload-zone{border:2.5px dashed var(--border);border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-l);}
+.uz-icon{font-size:28px;margin-bottom:6px;}
+.uz-title{font-size:13px;font-weight:800;margin-bottom:4px;}
+.uz-sub{font-size:11px;color:var(--gray);}
+.uz-btn{margin-top:10px;padding:7px 16px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.uz-result{margin-top:10px;padding:8px;background:var(--green-l);border-radius:8px;font-size:11px;font-weight:700;color:var(--green);display:none;}
+
+/* 폼 */
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+.form-label{font-size:12px;font-weight:700;color:var(--gray);}
+.form-input,.form-select{border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);}
+.form-input:focus,.form-select:focus{border-color:var(--blue);}
+
+/* 품목행 */
+.item-row{display:grid;grid-template-columns:1fr 80px 34px;gap:8px;align-items:center;margin-bottom:8px;}
+.item-del{width:34px;height:34px;border:none;background:var(--red-l);color:var(--red);border-radius:8px;cursor:pointer;font-size:16px;}
+.add-item-btn{width:100%;padding:9px;border:2px dashed var(--border);border-radius:10px;background:none;font-size:13px;font-weight:700;cursor:pointer;color:var(--gray);font-family:var(--font);margin-top:4px;}
+.add-item-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+/* 수거일 표시 */
+.auto-date{padding:10px 14px;background:var(--purple-l);border-radius:10px;font-size:13px;font-weight:700;color:var(--purple);margin-top:12px;display:none;}
+
+/* 버튼 */
+.save-btn{width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:var(--font);margin-top:16px;}
+.save-btn:hover{background:var(--blue-d);}
+.tb-btn{padding:8px 16px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);}
+.tb-btn.primary{background:var(--blue);color:#fff;}
+.tb-btn.green{background:var(--green);color:#fff;}
+.tb-btn.red{background:var(--red);color:#fff;}
+.tb-btn.gray{background:var(--gray-l);color:var(--gray);}
+
+/* 툴바 */
+.list-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+
+/* 테이블 */
+.tbl-wrap{overflow-x:auto;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.rtable{width:100%;border-collapse:collapse;font-size:13px;}
+.rtable thead tr{background:var(--blue);color:#fff;}
+.rtable th{padding:10px 12px;text-align:left;font-size:12px;white-space:nowrap;}
+.rtable td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.rtable tbody tr:hover{background:var(--blue-l);}
+.rtable tbody tr.sel{background:var(--blue-l);}
+
+/* 배지 */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.b-paid{background:var(--green-l);color:var(--green);}
+.b-unpaid{background:var(--yellow-l);color:var(--yellow);}
+.b-gu{background:var(--blue-l);color:var(--blue);}
+.b-ppegi{background:var(--purple-l);color:var(--purple);}
+.b-tel{background:var(--orange-l);color:var(--orange);}
+.b-dong{background:var(--gray-l);color:var(--gray);}
+.b-wait{background:var(--yellow-l);color:var(--yellow);}
+.b-done{background:var(--green-l);color:var(--green);}
+
+/* 통계 */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+.stat-card{background:var(--white);border-radius:12px;padding:12px 18px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px;}
+.stat-n{font-size:22px;font-weight:900;color:var(--blue);}
+.stat-l{font-size:12px;color:var(--gray);}
+
+/* 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--white);border-radius:20px;padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.modal-title{font-size:17px;font-weight:900;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:var(--gray-l);border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;}
+.modal-btns{display:flex;gap:10px;margin-top:16px;}
+.modal-btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font);}
+.modal-btn.cancel{background:var(--gray-l);color:var(--gray);}
+.modal-btn.confirm{background:var(--green);color:#fff;}
+
+/* 환불 검색 */
+.refund-search{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.refund-input{flex:1;min-width:180px;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;font-family:var(--font);outline:none;}
+.refund-input:focus{border-color:var(--blue);}
+.refund-result-card{background:var(--blue-l);border:2px solid var(--blue);border-radius:14px;padding:16px;margin-bottom:14px;display:none;}
+.refund-result-name{font-size:16px;font-weight:900;margin-bottom:6px;}
+.refund-result-detail{font-size:13px;color:var(--gray);}
+
+/* 로딩 */
+
+/* ── 환불 타입 선택 ── */
+.refund-type-btns{display:flex;gap:8px;margin-bottom:14px;}
+.refund-type-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);background:var(--gray-l);color:var(--gray);text-align:center;transition:all .15s;}
+.refund-type-btn.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+/* ── 일부환불 품목 체크 ── */
+.partial-item-check{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.partial-item-check:last-child{border-bottom:none;}
+.partial-item-check label{flex:1;font-size:14px;font-weight:600;cursor:pointer;}
+.partial-item-check .pi-price{font-size:13px;color:var(--blue);font-weight:700;}
+/* ── 휴일 관리 ── */
+.holiday-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:240px;overflow-y:auto;}
+.holiday-chip{padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:2px solid var(--border);text-align:center;transition:all .15s;}
+.holiday-chip.off{background:var(--green-l);border-color:var(--green);color:var(--green);}
+.holiday-chip.on{background:var(--red-l);border-color:var(--red);color:var(--red);}
+
+
+/* ── 품목 자동완성 ── */
+.item-ac-wrap{position:relative;flex:1;min-width:0;}
+.item-ac-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--font);outline:none;}
+.item-ac-input:focus{border-color:var(--blue);}
+.item-ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:2px solid var(--blue);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:200;max-height:240px;overflow-y:auto;display:none;}
+.item-ac-list.open{display:block;}
+.item-ac-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);font-size:14px;}
+.item-ac-item:last-child{border-bottom:none;}
+.item-ac-item:hover,.item-ac-item.active{background:var(--blue-l);}
+.item-ac-item .ac-price{font-size:13px;font-weight:700;color:var(--blue);}
+
+
+/* ── 통합검색 탭 ── */
+.srch-input:focus{border-color:var(--blue)!important;}
+.srch-ac-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.srch-ac-item:last-child{border-bottom:none;}
+.srch-ac-item:hover,.srch-ac-item.focused{background:var(--blue-l);}
+.srch-ac-badge{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--blue-l);color:var(--blue);font-weight:700;white-space:nowrap;}
+.b-wongjang{background:var(--blue-l);color:var(--blue);}
+.b-jiseo{background:var(--green-l);color:var(--green);}
+.b-receipt{background:var(--orange-l);color:var(--orange);}
+
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+.loading-overlay.hidden{display:none;}
+.spinner{width:38px;height:38px;border:4px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;font-weight:700;color:var(--gray);}
+
+/* 토스트 */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 22px;border-radius:12px;font-size:14px;font-weight:700;z-index:999;display:none;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-title">📋 디지털 원장 · 송파구</div>
+  <div class="conn-badge">
+    <span class="conn-dot loading" id="conn-dot"></span>
+    <span id="conn-text">연결 중…</span>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="nav-tab on" onclick="showTab('input',this)">📥 접수입력</button>
+  <button class="nav-tab" onclick="showTab('list',this)">📋 접수목록</button>
+  <button class="nav-tab" onclick="showTab('search',this)">🔍 통합검색</button>
+  <button class="nav-tab" onclick="showTab('refund',this)">💰 환불관리</button>
+  <button class="nav-tab" onclick="showTab('holiday',this)">📅 휴일관리</button>
+</div>
+
+<!-- ══ 탭1: 접수입력 ══ -->
+<div class="section on" id="tab-input">
+
+  <!-- 파일 업로드 -->
+  <div class="card">
+    <div class="card-title">📂 파일 업로드</div>
+    <div class="upload-grid">
+      <div class="upload-zone" id="uz-gu"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'gu')">
+        <div class="uz-icon">🏛</div>
+        <div class="uz-title">송파구청</div>
+        <div class="uz-sub">인터넷접수 xls</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-gu').click()">파일 선택</button>
+        <input type="file" id="fi-gu" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'gu')">
+        <div class="uz-result" id="ur-gu"></div>
+      </div>
+      <div class="upload-zone" id="uz-ppegi"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'ppegi')">
+        <div class="uz-icon">📱</div>
+        <div class="uz-title">빼기앱</div>
+        <div class="uz-sub">작업내역 xlsx</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-ppegi').click()">파일 선택</button>
+        <input type="file" id="fi-ppegi" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'ppegi')">
+        <div class="uz-result" id="ur-ppegi"></div>
+      </div>
+      <div class="upload-zone" id="uz-bank"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'bank')">
+        <div class="uz-icon">🏦</div>
+        <div class="uz-title">은행 입금내역</div>
+        <div class="uz-sub">KB국민은행 xls</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-bank').click()">파일 선택</button>
+        <input type="file" id="fi-bank" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'bank')">
+        <div class="uz-result" id="ur-bank"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 수기입력 -->
+  <div class="card">
+    <div class="card-title">✏️ 수기 입력 (전화 접수)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">접수일자</label>
+        <input type="date" class="form-input" id="f-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">접수구분</label>
+        <select class="form-select" id="f-source">
+          <option value="전화">📞 전화접수</option>
+          <option value="구청">🏛 구청</option>
+          <option value="빼기">📱 빼기앱</option>
+          <option value="아파트">🏢 아파트</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">동 구분</label>
+        <select class="form-select" id="f-dong" onchange="calcPickupDate()">
+          <option value="잠실본동">잠실동</option>
+          <option value="삼전동">삼전동</option>
+          <option value="5단지">5단지아파트</option>
+          <option value="트리지움">트리지움</option>
+          <option value="레이크팰리스">레이크팰리스</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">성명</label>
+        <input type="text" class="form-input" id="f-name" placeholder="홍길동">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">주소</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-input" id="f-addr"
+            placeholder="구주소 직접 입력 또는 오른쪽 버튼으로 검색"
+            style="flex:1;"
+            oninput="liveNormalizeAddr('f-addr','f-dong')"
+            onblur="onAddrBlur(this,'f-dong')">
+          <button type="button"
+            style="padding:10px 14px;background:var(--yellow);color:#fff;border:none;
+                   border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;
+                   white-space:nowrap;font-family:var(--font);"
+            onclick="openAddrSearch('f-addr','f-dong','f-addr-display')">
+            🔍 주소검색
+          </button>
+        </div>
+        <div id="f-addr-display" style="margin-top:4px;font-size:12px;color:var(--purple);
+             font-weight:700;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input type="tel" class="form-input" id="f-phone" placeholder="010-0000-0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">수거일자</label>
+        <input type="date" class="form-input" id="f-emit" readonly style="background:var(--gray-l);color:var(--blue);font-weight:700;" placeholder="저장 시 자동계산">
+      </div>
+      <div class="form-group">
+        <label class="form-label">접수방법</label>
+        <select class="form-select" id="f-estimate" onchange="calcPickupDate()">
+          <option value="no">일반접수</option>
+          <option value="yes">견적</option>
+          <option value="apt">아파트일괄</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="auto-date" id="auto-date-box">
+      📅 수거 예정일: <span id="auto-date-val" style="font-size:15px;"></span>
+    </div>
+
+    <!-- 품목 -->
+    <div style="margin-top:16px;">
+      <div class="form-label" style="margin-bottom:8px;">📦 품목</div>
+      <div id="item-rows"></div>
+      <button class="add-item-btn" onclick="addItemRow()">+ 품목 추가</button>
+    </div>
+
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label class="form-label">총금액 (자동계산)</label>
+        <input type="text" class="form-input" id="f-total" readonly style="background:var(--gray-l);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비고</label>
+        <input type="text" class="form-input" id="f-note" placeholder="배출장소 상세, 특이사항">
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveManual()">💾 접수 저장</button>
+  </div>
+</div>
+
+<!-- ══ 탭2: 접수목록 ══ -->
+<div class="section" id="tab-list">
+  <div class="stats-row" id="stats-row"></div>
+  <div class="card">
+    <div class="card-title">📋 접수 목록</div>
+    <div class="list-toolbar">
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="chk-all" onchange="toggleAll(this.checked)"> 전체선택
+      </label>
+      <button class="tb-btn green" onclick="createJiseo()">🚛 작업지시서 생성</button>
+      <button class="tb-btn primary" onclick="exportExcel()">📥 엑셀 다운</button>
+      <button class="tb-btn" style="background:var(--green);color:#fff;" onclick="bulkSetPaid()">💰 입금확인</button>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <input type="date" id="bulk-pickup" class="form-select" style="padding:7px 8px;font-size:12px;">
+        <button class="tb-btn" style="background:var(--purple);color:#fff;" onclick="bulkSetPickup()">🚛 수거일변경</button>
+      </div>
+      <button class="tb-btn red" onclick="deleteSelected()">🗑 선택 삭제</button>
+      <select class="form-select" id="filter-dong" style="padding:8px 12px;font-size:13px;" onchange="renderTable()">
+        <option value="">전체 동</option>
+        <option value="잠실본동">잠실동</option>
+        <option value="삼전동">삼전동</option>
+        <option value="5단지">5단지</option>
+        <option value="트리지움">트리지움</option>
+        <option value="레이크팰리스">레이크팰리스</option>
+      </select>
+      <select class="form-select" id="filter-paid" style="padding:8px 12px;font-size:13px;" onchange="renderTable()">
+        <option value="">입금 전체</option>
+        <option value="paid">입금완료</option>
+        <option value="unpaid">미입금</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" onchange="toggleAll(this.checked)"></th>
+            <th>구분</th><th>접수자</th><th>접수일</th><th>동</th><th>성명</th>
+            <th>주소</th><th>전화번호</th><th>품목</th>
+            <th>총금액</th><th>입금</th><th>수거일</th><th>비고</th>
+          </tr>
+        </thead>
+        <tbody id="receipt-tbody">
+          <tr><td colspan="13" style="text-align:center;padding:40px;color:var(--gray);">불러오는 중…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 탭3: 환불관리 ══ -->
+<div class="section" id="tab-refund">
+  <div class="card">
+    <div class="card-title">💰 환불 접수 (전화 올 때)</div>
+    <div class="refund-search">
+      <input type="text" class="refund-input" id="rf-search" placeholder="이름 또는 주소 검색">
+      <button class="tb-btn primary" onclick="searchRefund()">🔍 검색</button>
+    </div>
+    <div class="refund-result-card" id="rf-result-card">
+      <div class="refund-result-name" id="rf-result-name"></div>
+      <div class="refund-result-detail" id="rf-result-detail"></div>
+      <button class="tb-btn primary" style="margin-top:10px;" onclick="openRefundForm()">이 건으로 환불접수</button>
+    </div>
+    <div id="rf-form" style="display:none;">
+      <!-- 전체/일부환불 선택 -->
+      <div class="form-label" style="margin-bottom:8px;">환불 유형</div>
+      <div class="refund-type-btns">
+        <div class="refund-type-btn on" id="rft-full" onclick="setRefundType('full')">💰 전체환불</div>
+        <div class="refund-type-btn" id="rft-partial" onclick="setRefundType('partial')">⚠️ 일부환불</div>
+      </div>
+      <!-- 일부환불: 품목별 체크 -->
+      <div id="rf-partial-items" style="display:none;background:var(--gray-l);border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div class="form-label" style="margin-bottom:8px;">환불할 품목 선택</div>
+        <div id="rf-item-checks"></div>
+        <div style="margin-top:10px;font-size:13px;color:var(--gray);">
+          선택 환불액: <b id="rf-partial-total" style="color:var(--orange);">0원</b>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">예금주</label>
+          <input type="text" class="form-input" id="rf-owner" placeholder="홍길동">
+        </div>
+        <div class="form-group">
+          <label class="form-label">은행</label>
+          <select class="form-select" id="rf-bank">
+            <option>KB국민</option><option>신한</option><option>우리</option>
+            <option>하나</option><option>농협</option><option>기업</option>
+            <option>카카오뱅크</option><option>토스뱅크</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">계좌번호</label>
+          <input type="text" class="form-input" id="rf-account" placeholder="000-000-000000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">환불액 <span style="font-size:10px;color:var(--gray);">(수정가능)</span></label>
+          <input type="text" class="form-input" id="rf-amount" placeholder="0">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">사유</label>
+          <input type="text" class="form-input" id="rf-reason" placeholder="부재중, 주소불일치, 물건 없음 등">
+        </div>
+      </div>
+      <button class="save-btn" style="background:var(--orange);" onclick="saveRefund()">💰 환불접수 저장</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 환불 목록</div>
+    <div class="list-toolbar">
+      <button class="tb-btn gray" onclick="setRefundFilter('all')">전체</button>
+      <button class="tb-btn gray" onclick="setRefundFilter('wait')">⏳ 대기</button>
+      <button class="tb-btn gray" onclick="setRefundFilter('done')">✅ 완료</button>
+      <button class="tb-btn green" onclick="bulkRefundDone()">✅ 선택 환불완료</button>
+      <button class="tb-btn primary" onclick="exportRefundExcel()">📥 엑셀 다운</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" onchange="toggleRefundAll(this.checked)"></th>
+            <th>접수일</th><th>입금자</th><th>입금액</th><th>유형</th><th>환불액</th>
+            <th>예금주</th><th>은행</th><th>계좌</th><th>품목</th><th>사유</th><th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="refund-tbody">
+          <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--gray);">환불 내역이 없습니다</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══ 탭: 통합검색 ══ -->
+<div class="section" id="tab-search">
+  <!-- 검색 소스 선택 -->
+  <div class="card">
+    <div class="card-title">🔍 통합검색</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-wongjang" checked onchange="srchRender()"> 📋 원장 (wongjang_data)
+      </label>
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-jiseo" checked onchange="srchRender()"> 🚛 작업지시서 (jiseo_data)
+      </label>
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-receipt" checked onchange="srchRender()"> 📥 접수목록 (receipt_data)
+      </label>
+    </div>
+    <!-- 검색창 -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="search-input-wrap" style="flex:1;min-width:200px;position:relative;">
+        <input type="text" class="srch-input" id="srch-input"
+          placeholder="이름 · 주소 · 전화번호 · 품목 입력"
+          autocomplete="off"
+          oninput="srchAutoSuggest()"
+          onkeydown="srchKeydown(event)"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:12px 16px;font-size:15px;font-family:var(--font);outline:none;">
+        <div id="srch-ac" style="position:absolute;top:calc(100% + 4px);left:0;right:0;
+          background:var(--white);border:2px solid var(--blue);border-radius:12px;
+          box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:280px;overflow-y:auto;
+          display:none;z-index:200;"></div>
+      </div>
+      <button class="tb-btn primary" onclick="doSrch()">🔍 검색</button>
+      <button class="tb-btn gray" onclick="clearSrch()">✕ 초기화</button>
+      <span id="srch-count" style="font-size:13px;color:var(--gray);font-weight:700;"></span>
+    </div>
+  </div>
+
+  <!-- 검색결과 테이블 -->
+  <div class="card" id="srch-result-card" style="display:none;">
+    <div class="tbl-wrap">
+      <table class="rtable" id="srch-table">
+        <thead>
+          <tr>
+            <th>소스</th><th>날짜</th><th>동</th><th>성명</th><th>주소</th>
+            <th>전화번호</th><th>품목</th><th>총금액</th><th>입금</th><th>수거일</th>
+          </tr>
+        </thead>
+        <tbody id="srch-tbody">
+          <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">검색어를 입력하세요</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 탭4: 휴일관리 ══ -->
+<div class="section" id="tab-holiday">
+  <div class="card">
+    <div class="card-title">📅 작업일 관리 — 휴일/정상 수동 설정</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:14px;">
+      날짜를 클릭하면 <span style="color:var(--green);font-weight:700;">정상작업일</span> ↔ <span style="color:var(--red);font-weight:700;">휴무일</span> 토글됩니다.<br>
+      설정된 휴일은 수거일 자동계산에 즉시 반영됩니다.
+    </div>
+    <!-- 날짜 추가 -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+      <input type="date" class="form-input" id="holiday-add-date" style="width:auto;">
+      <button class="tb-btn red" onclick="addHoliday()">🚫 휴무일 추가</button>
+      <button class="tb-btn green" onclick="removeHoliday()">✅ 정상작업일 복원</button>
+    </div>
+    <!-- 현재 휴일 목록 -->
+    <div class="form-label" style="margin-bottom:8px;">현재 설정된 휴무일 (클릭하면 삭제)</div>
+    <div class="holiday-grid" id="holiday-grid"></div>
+    <!-- 기본 공휴일 목록 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="form-label" style="margin-bottom:8px;">📌 2026년 기본 공휴일</div>
+      <div class="holiday-grid" id="holiday-base-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 작업지시서 생성 모달 -->
+<div class="modal-overlay" id="jiseo-modal" onclick="if(event.target===this)closeModal('jiseo-modal')">
+  <div class="modal-box">
+    <div class="modal-title">
+      🚛 작업지시서 생성
+      <button class="modal-close" onclick="closeModal('jiseo-modal')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:12px;">선택된 건을 작업지시서로 생성합니다. 기사앱에 즉시 반영됩니다.</div>
+    <div id="jiseo-preview" style="background:var(--gray-l);border-radius:10px;padding:14px;font-size:13px;max-height:200px;overflow-y:auto;margin-bottom:14px;line-height:1.8;"></div>
+    <div class="form-group">
+      <label class="form-label">수거일자</label>
+      <input type="date" class="form-input" id="jiseo-date">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal('jiseo-modal')">취소</button>
+      <button class="modal-btn" style="background:var(--green);color:#fff;flex:1.5;" onclick="confirmJiseo()">✅ 생성 및 기사앱 전송</button>
+      <button class="modal-btn" style="background:#6b7280;color:#fff;" onclick="exportJiseoExcel()">📥 엑셀만</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">처리 중…</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ Firebase 설정 ══
+const firebaseConfig = {
+  apiKey:            "AIzaSyD4hPKN8cdtnsVACdvBxDfoR33mAOYEuco",
+  authDomain:        "boneco-wonjang.firebaseapp.com",
+  databaseURL:       "https://boneco-wonjang-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "boneco-wonjang",
+  storageBucket:     "boneco-wonjang.firebasestorage.app",
+  messagingSenderId: "463413861191",
+  appId:             "1:463413861191:web:c6a68b67fe000baae64a62"
+};
+const DB_RECEIPT  = 'receipt_data';
+const DB_WONGJANG = 'wongjang_data';
+const DB_JISEO   = 'jiseo_data';
+const DB_REFUND  = 'refund_data';
+const DB_PPEGI   = 'ppegi_keys';
+
+// 공휴일
+const HOLIDAYS = [
+  "2026-01-01","2026-01-28","2026-01-29","2026-01-30",
+  "2026-03-01","2026-05-05","2026-05-25","2026-06-06",
+  "2026-08-15","2026-09-24","2026-09-25","2026-09-26",
+  "2026-10-03","2026-10-09","2026-12-25"
+];
+
+// 가격표
+const PRICE_LIST = [
+  {name:"TV (42인치 이상)",price:7000},{name:"TV (42인치 미만)",price:5000},
+  {name:"냉장고 (일반)",price:5000},{name:"냉장고 (영업용 대형)",price:20000},
+  {name:"세탁기",price:5000},{name:"에어컨 (스탠드형)",price:10000},
+  {name:"에어컨 (벽걸이형)",price:5000},{name:"소파 (1인용)",price:5000},
+  {name:"소파 (2인용)",price:7000},{name:"소파 (3인용)",price:10000},
+  {name:"소파 (4인용 이상)",price:15000},{name:"장롱 (쪽당)",price:7000},
+  {name:"침대 (싱글/1인)",price:5000},{name:"침대 (더블/퀸)",price:7000},
+  {name:"침대 (킹)",price:10000},{name:"매트리스 (싱글)",price:5000},
+  {name:"매트리스 (더블/퀸)",price:7000},{name:"책상",price:3000},
+  {name:"의자",price:2000},{name:"식탁 (4인)",price:5000},
+  {name:"식탁 (6인 이상)",price:7000},{name:"서랍장",price:3000},
+  {name:"화장대",price:3000},{name:"자전거",price:3000},
+  {name:"피아노 (업라이트)",price:20000},{name:"이불/요",price:2000},
+  {name:"선풍기",price:2000},{name:"청소기",price:2000},
+  {name:"전자레인지",price:0},{name:"기타",price:0}
+];
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let receipts = {};
+let wongjangData = {};
+let refunds  = {};
+let ppegKeys = {};
+let selectedIds = new Set();
+let selectedRefundIds = new Set();
+let refundTarget = null;
+let refundFilter = 'all';
+let itemCount = 0;
+
+// ── 초기화 ──
+window.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('f-date').value  = today;
+  document.getElementById('f-emit').value  = today;
+  document.getElementById('jiseo-date').value = today;
+  addItemRow();
+
+  db.ref('.info/connected').on('value', snap => {
+    const on = snap.val();
+    document.getElementById('conn-dot').className = 'conn-dot ' + (on?'online':'offline');
+    document.getElementById('conn-text').textContent = on ? '실시간 연결됨' : '연결 끊김';
+  });
+
+  db.ref(DB_RECEIPT).on('value', snap => {
+    receipts = snap.val() || {};
+    renderTable();
+    renderStats();
+  });
+  db.ref(DB_WONGJANG).on('value', snap => {
+    wongjangData = snap.val() || {};
+  });
+  db.ref(DB_REFUND).on('value', snap => {
+    refunds = snap.val() || {};
+    renderRefundTable();
+  });
+  db.ref(DB_PPEGI).on('value', snap => { ppegKeys = snap.val() || {}; });
+  db.ref(DB_HOLIDAYS).on('value', snap => {
+    customHolidays = snap.val() || {};
+    renderHolidayGrid();
+  });
+});
+
+// ══ 탭 전환 ══
+function showTab(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('tab-'+name).classList.add('on');
+  el.classList.add('on');
+}
+
+// ══ 수거일 계산 ══
+function is5Danji(dong) { return dong === '5단지'; }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+
+function nextWorkday(d, is5) {
+  let cur = new Date(d);
+  for (let i = 0; i < 20; i++) {
+    const dow = cur.getDay();
+    const ds  = cur.toISOString().slice(0,10);
+    if (HOLIDAYS.includes(ds) || dow === 0 || (is5 && dow === 6)) {
+      cur = addDays(cur,1); continue;
+    }
+    return cur;
+  }
+  return cur;
+}
+
+function calcPickupDate() {
+  const dong     = document.getElementById('f-dong').value;
+  const estimate = document.getElementById('f-estimate').value;
+  const now      = new Date();
+  const hour     = now.getHours();
+  const minute   = now.getMinutes();
+  const totalMin = hour * 60 + minute;
+  const is5      = is5Danji(dong);
+
+  // 저장시각 기준 시간대 자동판별
+  let timeSlot;
+  if (totalMin < 14 * 60)       timeSlot = 'before14';
+  else if (totalMin < 16 * 60)  timeSlot = '14to16';
+  else                           timeSlot = 'after16';
+
+  const emit = now;  // 접수시각 기준
+  const emitStr = now.toISOString().slice(0,10);
+
+  const dow  = emit.getDay();
+  let pickup;
+
+  if (dow === 0) {
+    pickup = nextWorkday(addDays(emit,1), is5);
+  } else if (dow === 6) {
+    pickup = nextWorkday(addDays(emit,2), is5);
+  } else if (dow === 5) { // 금요일
+    if (timeSlot === 'before14') {
+      pickup = is5 ? nextWorkday(addDays(emit,3), is5) : nextWorkday(addDays(emit,1), is5);
+    } else if (timeSlot === '14to16') {
+      pickup = nextWorkday(addDays(emit,3), is5);
+    } else {
+      pickup = nextWorkday(addDays(emit,4), is5);
+    }
+  } else { // 월~목
+    if (timeSlot === 'before14') {
+      pickup = nextWorkday(addDays(emit,1), is5);
+    } else {
+      pickup = nextWorkday(addDays(emit,2), is5);
+    }
+  }
+
+  const result = pickup.toISOString().slice(0,10);
+  const days = ['일','월','화','수','목','금','토'];
+  document.getElementById('auto-date-box').style.display = '';
+  document.getElementById('auto-date-val').textContent = `${result} (${days[pickup.getDay()]})`;
+  document.getElementById('auto-date-box').dataset.date = result;
+}
+
+// ══ 품목 행 ══
+function addItemRow() {
+  // 품목 제한 없음
+  itemCount++;
+  const id = 'ir-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'item-row'; div.id = id;
+  div.innerHTML = `
+    <div class="item-ac-wrap">
+      <input type="text" class="item-ac-input item-name"
+        placeholder="품목명 입력 또는 직접 타이핑"
+        autocomplete="off"
+        oninput="showAcList(this)"
+        onkeydown="acKeydown(event,this)"
+        onfocus="showAcList(this)"
+        onblur="setTimeout(()=>hideAcList(this),200)">
+      <div class="item-ac-list"></div>
+    </div>
+    <input type="number" class="form-input item-amt" placeholder="금액" min="0"
+      style="text-align:right;" oninput="updateTotal()">
+    <button class="item-del"
+      onclick="document.getElementById('${id}').remove();itemCount--;updateTotal()">✕</button>`;
+  document.getElementById('item-rows').appendChild(div);
+}
+
+function showAcList(inp) {
+  const q      = inp.value.trim().toLowerCase();
+  const list   = inp.closest('.item-ac-wrap').querySelector('.item-ac-list');
+  const filtered = q
+    ? PRICE_LIST.filter(p => p.name.toLowerCase().includes(q))
+    : PRICE_LIST.slice(0, 20);  // 빈 칸이면 상위 20개만 표시
+  if (!filtered.length) { list.classList.remove('open'); return; }
+  const re = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi') : null;
+  list.innerHTML = filtered.map(p => {
+    const name = re ? p.name.replace(re, m => `<mark>${m}</mark>`) : p.name;
+    return `<div class="item-ac-item" onmousedown="selectAcItem(this,'${p.name.replace(/'/g,"\'")}',${p.price})">
+      <span>${name}</span>
+      <span class="ac-price">${p.price ? p.price.toLocaleString()+'원' : '면제'}</span>
+    </div>`;
+  }).join('');
+  list.classList.add('open');
+}
+
+function hideAcList(inp) {
+  const wrap = inp.closest('.item-ac-wrap');
+  if (wrap) wrap.querySelector('.item-ac-list').classList.remove('open');
+}
+
+function selectAcItem(el, name, price) {
+  const wrap = el.closest('.item-ac-wrap');
+  wrap.querySelector('.item-ac-input').value = name;
+  wrap.querySelector('.item-ac-list').classList.remove('open');
+  const amtInput = wrap.closest('.item-row').querySelector('.item-amt');
+  amtInput.value = price;
+  updateTotal();
+}
+
+function acKeydown(e, inp) {
+  const list  = inp.closest('.item-ac-wrap').querySelector('.item-ac-list');
+  const items = [...list.querySelectorAll('.item-ac-item')];
+  let cur     = items.findIndex(el => el.classList.contains('active'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (cur >= 0) items[cur].classList.remove('active');
+    cur = Math.min(cur + 1, items.length - 1);
+    items[cur]?.classList.add('active');
+    items[cur]?.scrollIntoView({block:'nearest'});
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (cur >= 0) items[cur].classList.remove('active');
+    cur = Math.max(cur - 1, 0);
+    items[cur]?.classList.add('active');
+    items[cur]?.scrollIntoView({block:'nearest'});
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = list.querySelector('.item-ac-item.active');
+    if (active) active.dispatchEvent(new MouseEvent('mousedown'));
+    else list.classList.remove('open');
+  } else if (e.key === 'Escape') {
+    hideAcList(inp);
+  }
+}
+
+function onItemChange() {} // 호환성 유지
+
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('.item-amt').forEach(inp => { total += parseInt(inp.value||0); });
+  document.getElementById('f-total').value = total ? total.toLocaleString()+'원' : '';
+}
+
+// ══ 수기 저장 ══
+function saveManual() {
+  calcPickupDate();
+  const pickup = document.getElementById('auto-date-box').dataset.date || '';
+  document.getElementById('f-emit').value = pickup;
+  const name = document.getElementById('f-name').value.trim();
+  const addr = document.getElementById('f-addr').value.trim();
+  if (!name||!addr) { showToast('⚠️ 성명과 주소는 필수입니다'); return; }
+  const items = [];
+  document.querySelectorAll('.item-row').forEach(row => {
+    const nameInp = row.querySelector('.item-name');
+    const amt     = row.querySelector('.item-amt');
+    const pname   = nameInp ? nameInp.value.trim() : '';
+    if (pname) items.push({품목:pname, 금액:parseInt(amt.value||0).toLocaleString()+'원'});
+  });
+
+  const total  = document.getElementById('f-total').value;
+  const row = {
+    _source:  document.getElementById('f-source').value,
+    _dong:    document.getElementById('f-dong').value,
+    접수일자: document.getElementById('f-date').value,
+    성명: name, 주소: addr,
+    전화번호: document.getElementById('f-phone').value.trim(),
+    수거일자: pickup, 총금액: total,
+    입금일자: '',
+    비고:     document.getElementById('f-note').value.trim(),
+    품목1: items[0]?.품목||'', 금액1: items[0]?.금액||'',
+    품목2: items[1]?.품목||'', 금액2: items[1]?.금액||'',
+    품목3: items[2]?.품목||'', 금액3: items[2]?.금액||'',
+    _items: items, _created: Date.now(),
+  };
+
+  showLoading('저장 중…');
+  db.ref(`${DB_RECEIPT}/${Date.now()}`).set(row)
+    .then(() => { hideLoading(); showToast('✅ 접수 저장 완료'); resetForm(); })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+function resetForm() {
+  ['f-name','f-addr','f-phone','f-note','f-paid','f-total'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('item-rows').innerHTML=''; itemCount=0; addItemRow();
+  document.getElementById('auto-date-box').style.display='none';
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('f-date').value = today;
+  document.getElementById('f-emit').value = today;
+}
+
+// ══ 파일 업로드 ══
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById('uz-'+type).classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+function handleFile(inp, type) {
+  if (inp.files[0]) processFile(inp.files[0], type);
+  inp.value='';
+}
+function processFile(file, type) {
+  showLoading(`[${type}] 파일 읽는 중…`);
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+      if (type==='gu')    parseGu(rows);
+      else if (type==='ppegi') parsePpegi(rows);
+      else if (type==='bank')  parseBank(rows);
+    } catch(err) { hideLoading(); showToast('❌ 파일 오류: '+err.message); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ── 구청 파싱 ──
+function parseGu(rows) {
+  const hi = rows.findIndex(r => r.some(v => String(v).includes('성명')||String(v).includes('신청인')));
+  const h  = rows[hi >= 0 ? hi : 0];
+  const nameCol  = h.findIndex(v => String(v).includes('성명')||String(v).includes('신청인'));
+  const addrCol  = h.findIndex(v => String(v).includes('주소')||String(v).includes('배출'));
+  const phoneCol = h.findIndex(v => String(v).includes('연락')||String(v).includes('전화'));
+  const itemCol  = h.findIndex(v => String(v).includes('품목')||String(v).includes('수거'));
+  const paidCol  = h.findIndex(v => String(v).includes('결제')||String(v).includes('합계')||String(v).includes('금액'));
+  const dateCol  = h.findIndex(v => String(v).includes('신청일')||String(v).includes('접수'));
+  const emitCol  = h.findIndex(v => String(v).includes('배출일')||String(v).includes('수거일'));
+
+  let added=0, skipped=0;
+  const saves = {};
+  for (let i=(hi>=0?hi:0)+1; i<rows.length; i++) {
+    const r    = rows[i];
+    const name = String(r[nameCol]||'').trim();
+    if (!name) continue;
+    const paidVal = String(r[paidCol]||'');
+    const isPaid  = paidVal.includes('완료')||(paidVal&&!paidVal.includes('미결')&&!paidVal.includes('대기'));
+    if (!isPaid) { skipped++; continue; }
+
+    const addr  = String(r[addrCol]||'').trim();
+    const phone = String(r[phoneCol]||'').trim();
+    const item  = String(r[itemCol]||'').trim();
+    const aDate = String(r[dateCol]||'').trim().slice(0,10);
+    const eDate = String(r[emitCol]||'').trim().slice(0,10);
+    const dong  = classifyDong(addr);
+    const emit  = eDate ? new Date(eDate) : new Date();
+    const pickup = nextWorkday(addDays(emit,1), is5Danji(dong)).toISOString().slice(0,10);
+
+    const key = Date.now()+i;
+    saves[`${DB_RECEIPT}/${key}`] = {
+      _source:'구청', _dong:dong,
+      접수일자:aDate, 성명:name, 주소:addr, 전화번호:phone,
+      배출일자:eDate, 수거일자:pickup,
+      품목1:item, 총금액:'', 입금일자:aDate, 비고:'', _created:key,
+    };
+    added++;
+  }
+  db.ref().update(saves)
+    .then(() => {
+      hideLoading();
+      const el=document.getElementById('ur-gu');
+      el.style.display=''; el.textContent=`✅ 결제완료 ${added}건 추가 / 미결제 ${skipped}건 제외`;
+      showToast(`✅ 구청 ${added}건 접수 완료`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 빼기 파싱 ──
+function parsePpegi(rows) {
+  const h = rows[0]||[];
+  const wnoCol   = h.findIndex(v => String(v).includes('작업번호')||String(v).includes('예약'));
+  const nameCol  = h.findIndex(v => String(v).includes('신청자')||String(v).includes('성명'));
+  const phoneCol = h.findIndex(v => String(v).includes('휴대폰')||String(v).includes('전화'));
+  const addrCol  = h.findIndex(v => String(v).includes('주소'));
+  const itemCol  = h.findIndex(v => String(v).includes('품목')||String(v).includes('규격'));
+  const amtCol   = h.findIndex(v => String(v).includes('금액')||String(v).includes('스티커'));
+  const dateCol  = h.findIndex(v => String(v).includes('신청일'));
+  const emitCol  = h.findIndex(v => String(v).includes('배출일'));
+  const noteCol  = h.findIndex(v => String(v).includes('배출위치')||String(v).includes('위치'));
+
+  let added=0, dup=0;
+  const saves={}, newKeys={};
+  for (let i=1; i<rows.length; i++) {
+    const r   = rows[i];
+    const wno = String(r[wnoCol]||'').trim();
+    const name= String(r[nameCol]||'').trim();
+    if (!name&&!wno) continue;
+    if (wno && ppegKeys[wno]) { dup++; continue; }
+
+    const addr  = String(r[addrCol]||'').trim();
+    const phone = String(r[phoneCol]||'').trim();
+    const item  = String(r[itemCol]||'').trim();
+    const amt   = String(r[amtCol]||'').trim();
+    const aDate = String(r[dateCol]||'').trim().slice(0,10);
+    const eDate = String(r[emitCol]||'').trim().slice(0,10);
+    const note  = String(r[noteCol]||'').trim();
+    const dong  = classifyDong(addr);
+    const emit  = eDate ? new Date(eDate) : new Date();
+    const pickup = nextWorkday(addDays(emit,1), is5Danji(dong)).toISOString().slice(0,10);
+    const amtNum = parseInt(amt.replace(/[^0-9]/g,''))||0;
+    const key = Date.now()+i;
+
+    saves[`${DB_RECEIPT}/${key}`] = {
+      _source:'빼기', _dong:dong, _ppegi_no:wno,
+      접수일자:aDate, 성명:name, 주소:addr, 전화번호:phone,
+      배출일자:eDate, 수거일자:pickup,
+      품목1:item, 금액1:amtNum?amtNum.toLocaleString()+'원':'',
+      총금액:amtNum?amtNum.toLocaleString()+'원':'',
+      입금일자:aDate, 비고:note, _created:key,
+    };
+    if (wno) newKeys[`${DB_PPEGI}/${wno}`] = true;
+    added++;
+  }
+  db.ref().update({...saves,...newKeys})
+    .then(() => {
+      hideLoading();
+      const el=document.getElementById('ur-ppegi');
+      el.style.display=''; el.textContent=`✅ 신규 ${added}건 추가 / 중복 ${dup}건 제외`;
+      showToast(`✅ 빼기앱 ${added}건 접수 완료`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 은행 파싱 ──
+function parseBank(rows) {
+  const hi = rows.findIndex(r => r.some(v => String(v).includes('거래일')||String(v).includes('날짜')));
+  const h  = rows[hi>=0?hi:0];
+  const nameCol = h.findIndex(v => String(v).includes('보낸분')||String(v).includes('이름'));
+  const amtCol  = h.findIndex(v => String(v).includes('입금액')||String(v).includes('입금'));
+  const dateCol = h.findIndex(v => String(v).includes('거래일')||String(v).includes('날짜'));
+
+  let matched=0, unmatched=0;
+  const updates={};
+  for (let i=(hi>=0?hi:0)+1; i<rows.length; i++) {
+    const r   = rows[i];
+    const amt = parseInt(String(r[amtCol]||'').replace(/[^0-9]/g,''));
+    if (!amt||amt<=0) continue;
+    const sender = String(r[nameCol]||'').replace(/[0-9\-\s동호]/g,'').replace(/tosspaymen.*/i,'').trim();
+    const txDate = String(r[dateCol]||'').trim().slice(0,10);
+    let found=false;
+    Object.entries(receipts).forEach(([id,rec]) => {
+      if (rec.입금일자) return;
+      const recName = (rec.성명||'').replace(/\s/g,'');
+      const recAmt  = parseInt((rec.총금액||'').replace(/[^0-9]/g,''));
+      if (sender && recName.includes(sender) && Math.abs(recAmt-amt)<100) {
+        updates[`${DB_RECEIPT}/${id}/입금일자`] = txDate;
+        matched++; found=true;
+      }
+    });
+    if (!found) unmatched++;
+  }
+  db.ref().update(updates)
+    .then(() => {
+      hideLoading();
+      const el=document.getElementById('ur-bank');
+      el.style.display=''; el.textContent=`✅ 입금확인 ${matched}건 / 미매칭 ${unmatched}건`;
+      showToast(`✅ 은행 매칭 완료 — ${matched}건 입금확인`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 동 분류 ──
+function classifyDong(addr) {
+  if (!addr) return '잠실본동';
+  if (addr.includes('삼전')) return '삼전동';
+  if (addr.includes('5단지')||addr.includes('올림픽선수')) return '5단지';
+  if (addr.includes('트리지움')) return '트리지움';
+  if (addr.includes('레이크팰리스')) return '레이크팰리스';
+  return '잠실본동';
+}
+
+// ══ 접수목록 테이블 ══
+function renderTable() {
+  const dongF = document.getElementById('filter-dong')?.value||'';
+  const paidF = document.getElementById('filter-paid')?.value||'';
+  let rows = Object.entries(receipts).map(([id,r]) => ({...r,_id:id}))
+    .filter(r => !dongF || r._dong===dongF)
+    .filter(r => { if(paidF==='paid') return !!r.입금일자; if(paidF==='unpaid') return !r.입금일자; return true; })
+    .sort((a,b) => (b.접수일자||'').localeCompare(a.접수일자||''));
+
+  const tbody = document.getElementById('receipt-tbody');
+  if (!rows.length) {
+    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--gray);">접수 데이터가 없습니다</td></tr>';
+    return;
+  }
+  const sb = s => s==='구청'?'b-gu':s==='빼기'?'b-ppegi':'b-tel';
+  tbody.innerHTML = rows.map(r => `<tr class="${selectedIds.has(r._id)?'sel':''}" onclick="toggleSel('${r._id}',this)" ondblclick="openEditModal('${r._id}')">
+    <td onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(r._id)?'checked':''} onchange="toggleSel('${r._id}',this.closest('tr'))"></td>
+    <td><span class="badge ${sb(r._source||'')}">${r._source||'-'}</span></td>
+    <td style="text-align:center;font-weight:700;">${r.접수자||''}</td>
+    <td>${r.접수일자||''}</td>
+    <td><span class="badge b-dong">${r._dong||''}</span></td>
+    <td style="font-weight:700;">${r.성명||''}</td>
+    <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.주소||''}</td>
+    <td style="font-size:12px;">${r.전화번호||''}</td>
+    <td style="font-size:12px;max-width:120px;">${r.품목1||''}${r.품목2?'·'+r.품목2:''}</td>
+    <td style="font-weight:700;">${r.총금액||''}</td>
+    <td><span class="badge ${r.입금일자?'b-paid':'b-unpaid'}">${r.입금일자?'✅입금':'⏳미입금'}</span></td>
+    <td style="font-size:12px;">${r.수거일자||''}</td>
+    <td style="font-size:12px;color:var(--gray);">${r.비고||''}${r._jiseo_date?`<span style='background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:700;'>🚛${r._jiseo_date.slice(5)}</span>`:''}</td>  </tr>`).join('');
+}
+
+function toggleSel(id, tr) {
+  if (selectedIds.has(id)) { selectedIds.delete(id); tr.classList.remove('sel'); }
+  else { selectedIds.add(id); tr.classList.add('sel'); }
+}
+function toggleAll(checked) {
+  Object.keys(receipts).forEach(id => { if(checked) selectedIds.add(id); else selectedIds.delete(id); });
+  renderTable();
+}
+function deleteSelected() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  if (!confirm(`선택된 ${selectedIds.size}건을 삭제하시겠습니까?`)) return;
+  const updates={};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}`]=null; });
+  db.ref().update(updates).then(() => { selectedIds.clear(); showToast('🗑 삭제 완료'); });
+}
+
+// ══ 통계 ══
+function renderStats() {
+  const all = Object.values(receipts);
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-n">${all.length}</div><div class="stat-l">전체 접수</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--green)">${all.filter(r=>r.입금일자).length}</div><div class="stat-l">입금완료</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--red)">${all.filter(r=>!r.입금일자).length}</div><div class="stat-l">미입금</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--blue)">${all.filter(r=>r.수거일자).length}</div><div class="stat-l">수거일 지정</div></div>`;
+}
+
+// ══ 작업지시서 생성 ══
+function createJiseo() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const sel = [...selectedIds].map(id => ({...receipts[id],_id:id})).filter(Boolean);
+  document.getElementById('jiseo-preview').innerHTML = sel.map(r =>
+    `✅ ${r.성명||''} / ${r._dong||''} / ${r.품목1||''} / ${r.총금액||''}`).join('<br>');
+  document.getElementById('jiseo-modal').classList.add('show');
+}
+
+function confirmJiseo() {
+  const jDate = document.getElementById('jiseo-date').value;
+  if (!jDate) { showToast('⚠️ 수거일자를 선택하세요'); return; }
+
+  const jiseoRows = {};
+  [...selectedIds].forEach(id => {
+    const r = receipts[id]; if (!r) return;
+    const dong  = r._dong||'잠실본동';
+    const sheet = (dong==='5단지'||dong==='트리지움'||dong==='레이크팰리스') ? '아파트' : dong;
+    if (sheet==='아파트') {
+      if (!jiseoRows['아파트']) jiseoRows['아파트']={};
+      if (!jiseoRows['아파트'][dong]) jiseoRows['아파트'][dong]=[];
+      jiseoRows['아파트'][dong].push({...r, 수거일자:jDate});
+    } else {
+      if (!jiseoRows[sheet]) jiseoRows[sheet]=[];
+      jiseoRows[sheet].push({...r, 수거일자:jDate});
+    }
+  });
+
+  showLoading('작업지시서 생성 중…');
+  db.ref(`${DB_JISEO}/${jDate}`).set(jiseoRows)
+    .then(() => {
+      hideLoading();
+      closeModal('jiseo-modal');
+      showToast(`✅ 작업지시서 생성 완료 — 기사앱 즉시 반영`);
+// 작업지시서 생성일 배지 기록
+      const updates = {};
+      [...selectedIds].forEach(id => {
+        updates[`${DB_RECEIPT}/${id}/_jiseo_date`] = jDate;
+      });
+      db.ref().update(updates);
+      selectedIds.clear(); renderTable();
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ══ 엑셀 ══
+function exportExcel() {
+  const HDR = ['연번','접수일자','주소','성명','전화번호',
+    '품목','금액','품목','금액','품목','금액',
+    '총금액','입금일자','수거일자','비고'];
+  const wb = XLSX.utils.book_new();
+  const dongMap = {'잠실본동':'잠실동','삼전동':'삼전동','5단지':'5단지','트리지움':'트리지움','레이크팰리스':'레이크팰리스'};
+
+  Object.entries(dongMap).forEach(([key, label]) => {
+    const filtered = Object.values(receipts)
+      .filter(r => r._dong === key)
+      .sort((a,b) => (a.접수일자||'').localeCompare(b.접수일자||''));
+    if (!filtered.length) return;
+
+    const aoa = [HDR];
+    const merges = [];
+    let rowIdx = 1; // 헤더 다음부터
+
+    filtered.forEach((r, idx) => {
+      // 품목 배열 (최대 24개)
+      const rawItems = r._items;
+      const allItems = rawItems
+        ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+        : [
+            {품목:r.품목1||'',금액:r.금액1||''},
+            {품목:r.품목2||'',금액:r.금액2||''},
+            {품목:r.품목3||'',금액:r.금액3||''},
+          ].filter(it => it.품목);
+      if (!allItems.length) allItems.push({품목:'',금액:''});
+
+      // 3개씩 묶어서 행 분리
+      const chunks = [];
+      for (let i=0; i<allItems.length; i+=3) chunks.push(allItems.slice(i,i+3));
+      const span = chunks.length;
+
+      chunks.forEach((chunk, ci) => {
+        const isFirst = ci === 0;
+        const row = [
+          isFirst ? idx+1 : '',
+          isFirst ? (r.접수일자||'').slice(5).replace('-','/') : '',
+          isFirst ? normalizeAddr(r.주소||'',key) : '',
+          isFirst ? r.성명||'' : '',
+          isFirst ? r.전화번호||'' : '',
+          chunk[0]?.품목||'',
+          chunk[0]?.금액 ? parseInt((chunk[0].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          chunk[1]?.품목||'',
+          chunk[1]?.금액 ? parseInt((chunk[1].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          chunk[2]?.품목||'',
+          chunk[2]?.금액 ? parseInt((chunk[2].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          isFirst ? (parseInt((r.총금액||'').replace(/[^0-9]/g,''))||'') : '',
+          isFirst ? (r.입금일자||'').slice(5).replace('-','/') : '',
+          isFirst ? (r.수거일자||'').slice(5).replace('-','/') : '',
+          isFirst ? (r.비고||'').replace(/인터넷/g,'(인)') : '',
+        ];
+        aoa.push(row);
+
+        // 병합: 2행 이상일 때 번호·접수일·주소·성명·전화·총금액·입금·수거·비고
+        if (isFirst && span > 1) {
+          [0,1,2,3,4,11,12,13,14].forEach(col => {
+            merges.push({s:{r:rowIdx,c:col}, e:{r:rowIdx+span-1,c:col}});
+          });
+        }
+        rowIdx++;
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      {wch:5},{wch:7},{wch:12},{wch:7},{wch:13},
+      {wch:11},{wch:7},{wch:11},{wch:7},{wch:11},{wch:7},
+      {wch:8},{wch:7},{wch:7},{wch:16}
+    ];
+    ws['!rows'] = aoa.map(() => ({hpt:15}));
+    ws['!pageSetup'] = {orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};
+    ws['!headerFooter'] = {oddFooter:'&C&P / &N'};
+    ws['!margins'] = {left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.3,footer:0.3};
+    XLSX.utils.book_append_sheet(wb, ws, label);
+  });
+
+  XLSX.writeFile(wb, `원장_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══ 환불 ══
+function searchRefund() {
+  const q = document.getElementById('rf-search').value.trim().toLowerCase();
+  if (!q) return;
+  const found = Object.entries(receipts).find(([,r]) =>
+    (r.성명||'').toLowerCase().includes(q)||(r.주소||'').toLowerCase().includes(q));
+  const card = document.getElementById('rf-result-card');
+  card.style.display='';
+  if (!found) {
+    document.getElementById('rf-result-name').textContent = '검색 결과 없음';
+    document.getElementById('rf-result-detail').textContent = '';
+    refundTarget = null; return;
+  }
+  const [id,r] = found;
+  refundTarget = {id,...r};
+  document.getElementById('rf-result-name').textContent = `${r.성명||''} / ${r._dong||''}`;
+  document.getElementById('rf-result-detail').textContent = `접수일: ${r.접수일자||''} | 입금액: ${r.총금액||'없음'} | 품목: ${r.품목1||''}`;
+}
+
+function openRefundForm() {
+  if (!refundTarget) return;
+  // 타입 초기화 → 전체환불
+  refundType = 'full';
+  document.getElementById('rft-full').classList.add('on');
+  document.getElementById('rft-partial').classList.remove('on');
+  document.getElementById('rf-partial-items').style.display='none';
+
+  document.getElementById('rf-owner').value  = refundTarget.성명||'';
+  document.getElementById('rf-amount').value = (refundTarget.총금액||'').replace(/[^0-9]/g,'');
+  document.getElementById('rf-form').style.display='';
+}
+
+function saveRefund() {
+  if (!refundTarget) return;
+  const owner   = document.getElementById('rf-owner').value.trim();
+  const account = document.getElementById('rf-account').value.trim();
+  const amount  = document.getElementById('rf-amount').value.trim();
+  if (!owner||!account) { showToast('⚠️ 예금주와 계좌번호를 입력하세요'); return; }
+
+  // 일부환불 선택 품목 수집
+  let refundItems = '';
+  if (refundType === 'partial') {
+    const rawItems = refundTarget._items;
+    const items = rawItems
+      ? (Array.isArray(rawItems)?rawItems:Object.values(rawItems))
+      : [{품목:refundTarget.품목1||'',금액:refundTarget.금액1||''},{품목:refundTarget.품목2||'',금액:refundTarget.금액2||''}].filter(it=>it.품목);
+    const checked = [...document.querySelectorAll('[id^="rfc-"]')].map((cb,i)=>cb.checked?items[i]:null).filter(Boolean);
+    refundItems = checked.map(it=>it.품목).join(', ');
+  } else {
+    refundItems = refundTarget.품목1||'';
+  }
+
+  const row = {
+    접수일:   refundTarget.접수일자||'',
+    입금자:   refundTarget.성명||'',
+    입금액:   refundTarget.총금액||'',
+    환불유형: refundType==='partial'?'일부환불':'전체환불',
+    환불액:   amount ? parseInt(amount.replace(/[^0-9]/g,'')).toLocaleString()+'원' : '',
+    예금주:   owner,
+    은행:     document.getElementById('rf-bank').value,
+    계좌:     account,
+    품목:     refundItems,
+    사유:     document.getElementById('rf-reason').value.trim(),
+    상태:     'wait',
+    _created: Date.now(),
+  };
+  db.ref(`${DB_REFUND}/${Date.now()}`).set(row)
+    .then(() => {
+      showToast('✅ 환불접수 저장 완료');
+      document.getElementById('rf-form').style.display='none';
+      document.getElementById('rf-result-card').style.display='none';
+      document.getElementById('rf-search').value='';
+      refundTarget=null;
+    })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function setRefundFilter(f) { refundFilter=f; renderRefundTable(); }
+
+function renderRefundTable() {
+  const rows = Object.entries(refunds)
+    .map(([id,r]) => ({...r,_id:id}))
+    .filter(r => refundFilter==='all' || r.상태===refundFilter)
+    .sort((a,b) => b._created-a._created);
+  const tbody = document.getElementById('refund-tbody');
+  if (!rows.length) {
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--gray);">환불 내역이 없습니다</td></tr>'; return;
+  }
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td><input type="checkbox" onchange="toggleRefundSel('${r._id}',this.checked)"></td>
+    <td>${r.접수일||''}</td><td style="font-weight:700;">${r.입금자||''}</td>
+    <td>${r.입금액||''}</td>
+    <td><span class="badge ${r.환불유형==='일부환불'?'b-wait':'b-paid'}">${r.환불유형||'전체환불'}</span></td>
+    <td style="color:var(--red);font-weight:700;">${r.환불액||''}</td>
+    <td>${r.예금주||''}</td><td>${r.은행||''}</td>
+    <td style="font-size:12px;">${r.계좌||''}</td>
+    <td style="font-size:12px;">${r.품목||''}</td>
+    <td style="font-size:12px;color:var(--gray);">${r.사유||''}</td>
+    <td><span class="badge ${r.상태==='done'?'b-done':'b-wait'}">${r.상태==='done'?'✅완료':'⏳대기'}</span></td>
+  </tr>`).join('');
+}
+
+function toggleRefundSel(id, checked) { if(checked) selectedRefundIds.add(id); else selectedRefundIds.delete(id); }
+function toggleRefundAll(checked) { Object.keys(refunds).forEach(id => { if(checked) selectedRefundIds.add(id); else selectedRefundIds.delete(id); }); }
+
+function bulkRefundDone() {
+  if (!selectedRefundIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const updates={};
+  selectedRefundIds.forEach(id => { updates[`${DB_REFUND}/${id}/상태`]='done'; });
+  db.ref().update(updates).then(() => { selectedRefundIds.clear(); showToast('✅ 환불완료 처리됨'); });
+}
+
+function exportJiseoExcel() {
+  const jDate = document.getElementById('jiseo-date').value;
+  if (!jDate) { showToast('⚠️ 수거일자를 선택하세요'); return; }
+  const sel = [...selectedIds].map(id => receipts[id]).filter(Boolean);
+  if (!sel.length) { showToast('⚠️ 항목을 선택하세요'); return; }
+
+  const HDR = ['연번','접수일','주소','성명','전화번호',
+    '품목','금액','품목','금액','품목','금액',
+    '총금액','수거일','수거원','비고'];
+  const wb = XLSX.utils.book_new();
+  const sheetDef = [
+    {label:'잠실동', keys:['잠실본동']},
+    {label:'삼전동', keys:['삼전동']},
+    {label:'아파트', keys:['5단지','트리지움','레이크팰리스']},
+  ];
+
+  sheetDef.forEach(({label, keys}) => {
+    const filtered = sel.filter(r => keys.includes(r._dong));
+    if (!filtered.length) return;
+
+    const aoa = [HDR];
+    const merges = [];
+    let rowIdx = 1;
+
+    filtered.forEach((r, idx) => {
+      const rawItems = r._items;
+      const allItems = rawItems
+        ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+        : [
+            {품목:r.품목1||'',금액:r.금액1||''},
+            {품목:r.품목2||'',금액:r.금액2||''},
+            {품목:r.품목3||'',금액:r.금액3||''},
+          ].filter(it => it.품목);
+      if (!allItems.length) allItems.push({품목:'',금액:''});
+
+      const chunks = [];
+      for (let i=0; i<allItems.length; i+=3) chunks.push(allItems.slice(i,i+3));
+      const span = chunks.length;
+
+      chunks.forEach((chunk, ci) => {
+        const isFirst = ci === 0;
+        const bigo = isFirst ? (r.비고||'').replace(/인터넷/g,'(인)') : '';
+        const row = [
+          isFirst ? idx+1 : '',
+          isFirst ? (r.접수일자||'').slice(5).replace('-','/') : '',
+          isFirst ? normalizeAddr(r.주소||'', r._dong||'') : '',
+          isFirst ? r.성명||'' : '',
+          isFirst ? r.전화번호||'' : '',
+          chunk[0]?.품목||'',
+          chunk[0]?.금액 ? parseInt((chunk[0].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          chunk[1]?.품목||'',
+          chunk[1]?.금액 ? parseInt((chunk[1].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          chunk[2]?.품목||'',
+          chunk[2]?.금액 ? parseInt((chunk[2].금액||'').replace(/[^0-9]/g,''))||'' : '',
+          isFirst ? parseInt((r.총금액||'').replace(/[^0-9]/g,''))||'' : '',
+          isFirst ? jDate.slice(5).replace('-','/') : '',
+          isFirst ? r.수거원||'' : '',
+          isFirst ? bigo : '',
+        ];
+        aoa.push(row);
+
+        if (isFirst && span > 1) {
+          [0,1,2,3,4,11,12,13,14].forEach(col => {
+            merges.push({s:{r:rowIdx,c:col}, e:{r:rowIdx+span-1,c:col}});
+          });
+        }
+        rowIdx++;
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      {wch:5},{wch:7},{wch:12},{wch:7},{wch:13},
+      {wch:11},{wch:7},{wch:11},{wch:7},{wch:11},{wch:7},
+      {wch:8},{wch:7},{wch:6},{wch:16}
+    ];
+    ws['!rows'] = aoa.map(() => ({hpt:15}));
+    ws['!pageSetup'] = {orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};
+    ws['!headerFooter'] = {oddFooter:'&C&P / &N'};
+    ws['!margins'] = {left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.3,footer:0.3};
+    XLSX.utils.book_append_sheet(wb, ws, label);
+  });
+
+  XLSX.writeFile(wb, `작업지시서_${jDate}.xlsx`);
+}
+
+function exportRefundExcel() {
+  const HDR = ['접수일','입금자','입금액','환불유형','환불액','예금주','은행','계좌','품목','사유','상태'];
+  const rows = [HDR, ...Object.values(refunds).map(r => HDR.map(k => r[k]||''))];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '환불목록');
+  XLSX.writeFile(wb, `환불목록_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══ 유틸 ══
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showLoading(msg) { document.getElementById('loading-text').textContent=msg||'처리 중…'; document.getElementById('loading-overlay').classList.remove('hidden'); }
+function hideLoading()    { document.getElementById('loading-overlay').classList.add('hidden'); }
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3500);
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show')); });
+
+// ══ 환불 타입 (전체/일부) ══
+let refundType = 'full';
+
+function setRefundType(type) {
+  refundType = type;
+  document.getElementById('rft-full').classList.toggle('on', type==='full');
+  document.getElementById('rft-partial').classList.toggle('on', type==='partial');
+  const partialBox = document.getElementById('rf-partial-items');
+  partialBox.style.display = type==='partial' ? '' : 'none';
+
+  if (type==='full' && refundTarget) {
+    // 전체환불 → 총금액 자동
+    document.getElementById('rf-amount').value = (refundTarget.총금액||'').replace(/[^0-9]/g,'');
+  } else if (type==='partial' && refundTarget) {
+    // 일부환불 → 품목 체크박스 생성
+    buildPartialItemChecks();
+    document.getElementById('rf-amount').value = '';
+  }
+}
+
+function buildPartialItemChecks() {
+  if (!refundTarget) return;
+  const rawItems = refundTarget._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [
+        {품목:refundTarget.품목1||'', 금액:refundTarget.금액1||''},
+        {품목:refundTarget.품목2||'', 금액:refundTarget.금액2||''},
+        {품목:refundTarget.품목3||'', 금액:refundTarget.금액3||''},
+      ].filter(it => it.품목);
+
+  const box = document.getElementById('rf-item-checks');
+  box.innerHTML = items.length
+    ? items.map((it, i) => {
+        const price = parseInt((it.금액||'0').replace(/[^0-9]/g,''))||0;
+        return `<div class="partial-item-check">
+          <input type="checkbox" id="rfc-${i}" onchange="calcPartialTotal()">
+          <label for="rfc-${i}">${it.품목||'(품목없음)'}</label>
+          <span class="pi-price">${price ? price.toLocaleString()+'원' : '면제'}</span>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--gray);font-size:13px;">품목 정보가 없습니다. 환불액을 직접 입력하세요.</div>';
+}
+
+function calcPartialTotal() {
+  if (!refundTarget) return;
+  const rawItems = refundTarget._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [
+        {품목:refundTarget.품목1||'',금액:refundTarget.금액1||''},
+        {품목:refundTarget.품목2||'',금액:refundTarget.금액2||''},
+        {품목:refundTarget.품목3||'',금액:refundTarget.금액3||''},
+      ].filter(it=>it.품목);
+
+  let total = 0;
+  document.querySelectorAll('[id^="rfc-"]').forEach((cb, i) => {
+    if (cb.checked && items[i]) {
+      total += parseInt((items[i].금액||'0').replace(/[^0-9]/g,''))||0;
+    }
+  });
+  document.getElementById('rf-partial-total').textContent = total.toLocaleString()+'원';
+  document.getElementById('rf-amount').value = total || '';
+}
+
+// ══ 휴일 관리 ══
+const DB_HOLIDAYS = 'custom_holidays';  // Firebase 경로
+let customHolidays = {}; // { 'YYYY-MM-DD': true/false } — false = 정상작업일 복원
+
+// 통합 휴일 판별 (기본공휴일 + 커스텀)
+function isHolidayDate(ds) {
+  if (customHolidays[ds] === false) return false; // 강제 정상작업일
+  if (customHolidays[ds] === true)  return true;  // 강제 휴무일
+  return HOLIDAYS.includes(ds);
+}
+
+// 휴일 추가
+function addHoliday() {
+  const d = document.getElementById('holiday-add-date').value;
+  if (!d) { showToast('⚠️ 날짜를 선택하세요'); return; }
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(true)
+    .then(() => showToast(`🚫 ${d} 휴무일로 설정됨`))
+    .catch(err => showToast('❌ '+err.message));
+}
+
+// 정상작업일 복원
+function removeHoliday() {
+  const d = document.getElementById('holiday-add-date').value;
+  if (!d) { showToast('⚠️ 날짜를 선택하세요'); return; }
+  const isBase = HOLIDAYS.includes(d);
+  if (isBase) {
+    // 기본 공휴일을 정상작업일로 복원 → false로 저장
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(false)
+      .then(() => showToast(`✅ ${d} 정상작업일로 복원됨`))
+      .catch(err => showToast('❌ '+err.message));
+  } else {
+    // 커스텀 휴일 삭제
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+      .then(() => showToast(`✅ ${d} 휴일 해제됨`))
+      .catch(err => showToast('❌ '+err.message));
+  }
+}
+
+// 휴일 그리드 렌더
+function renderHolidayGrid() {
+  // 커스텀 휴일 그리드
+  const grid = document.getElementById('holiday-grid');
+  const customOn = Object.entries(customHolidays).filter(([,v]) => v===true).map(([k]) => k.replace(/_/g,'-'));
+  const baseRestored = Object.entries(customHolidays).filter(([,v]) => v===false).map(([k]) => k.replace(/_/g,'-'));
+
+  grid.innerHTML = customOn.length
+    ? customOn.sort().map(d => `<div class="holiday-chip on" title="클릭하면 해제" onclick="quickRemoveHoliday('${d}')">🚫 ${d}</div>`).join('')
+    + baseRestored.map(d => `<div class="holiday-chip off" title="공휴일이지만 정상작업일" onclick="quickRestoreHoliday('${d}')">✅ ${d} (복원됨)</div>`).join('')
+    : '<div style="color:var(--gray);font-size:13px;">추가된 커스텀 휴일이 없습니다</div>';
+
+  // 기본 공휴일 그리드
+  const baseGrid = document.getElementById('holiday-base-grid');
+  baseGrid.innerHTML = HOLIDAYS.sort().map(d => {
+    const isRestored = customHolidays[d.replace(/-/g,'_')] === false;
+    return `<div class="holiday-chip ${isRestored?'off':'on'}" onclick="toggleBaseHoliday('${d}')">
+      ${isRestored?'✅':'🚫'} ${d}${isRestored?' (정상)':''}
+    </div>`;
+  }).join('');
+}
+
+function quickRemoveHoliday(d) {
+  if (!confirm(`[${d}] 휴일을 해제하시겠습니까?`)) return;
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+    .then(() => showToast(`✅ ${d} 해제됨`));
+}
+function quickRestoreHoliday(d) {
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+    .then(() => showToast(`🚫 ${d} 다시 휴일로 적용됨`));
+}
+function toggleBaseHoliday(d) {
+  const isRestored = customHolidays[d.replace(/-/g,'_')] === false;
+  if (isRestored) {
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+      .then(() => showToast(`🚫 ${d} 다시 휴일 적용`));
+  } else {
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(false)
+      .then(() => showToast(`✅ ${d} 정상작업일로 복원`));
+  }
+}
+
+// nextWorkday — 커스텀 휴일 반영
+// (기존 함수를 오버라이드)
+nextWorkday = function(d, is5) {
+  let cur = new Date(d);
+  for (let i = 0; i < 20; i++) {
+    const dow = cur.getDay();
+    const ds  = cur.toISOString().slice(0,10);
+    if (isHolidayDate(ds) || dow === 0 || (is5 && dow === 6)) {
+      cur = addDays(cur,1); continue;
+    }
+    return cur;
+  }
+  return cur;
+};
+
+
+
+// ═══════════════════════════════════════════
+//  주소 정규화 (신주소 → 본 xxx-xx / 삼 xxx-xx)
+// ═══════════════════════════════════════════
+function normalizeAddr(addr, dong) {
+  if (!addr) return '';
+  addr = addr.trim();
+
+  // 이미 본/삼/트리/레이크/5단지 형태면 그대로
+  if (/^(본|삼|트리지움|레이크팰리스|5단지|아파트)\s/.test(addr)) return addr;
+
+  // 신주소 감지 (로/길 포함 + 동 미포함)
+  const isRoad = /[로길]\s*\d/.test(addr) && !/동\s*\d/.test(addr);
+  if (isRoad) return addr; // 신주소는 그대로 (카카오 변환 필요)
+
+  // 지번 추출 (숫자-숫자 or 숫자만)
+  const jibunMatch = addr.match(/(\d+(?:-\d+)?)/);
+  const jibun = jibunMatch ? jibunMatch[1] : '';
+
+  // 동별 접두어 결정
+  let prefix = '본';
+  if (dong === '삼전동' || addr.includes('삼전')) prefix = '삼';
+  else if (dong === '5단지' || addr.includes('5단지') || addr.includes('올림픽선수')) prefix = '5단지';
+  else if (dong === '트리지움' || addr.includes('트리지움')) prefix = '트리지움';
+  else if (dong === '레이크팰리스' || addr.includes('레이크팰리스')) prefix = '레이크팰리스';
+  else if (dong === '잠실본동' || addr.includes('잠실본동') || addr.includes('잠실')) prefix = '본';
+
+  return jibun ? `${prefix} ${jibun}` : addr;
+}
+
+// 실시간 입력 변환 (타이핑 중)
+function liveNormalizeAddr(addrId, dongId) {
+  const el   = document.getElementById(addrId);
+  const dong = document.getElementById(dongId)?.value || '잠실본동';
+  const val  = el.value;
+  // 신주소 감지 알림
+  const disp = document.getElementById(addrId.replace('addr','addr-display'));
+  if (disp) {
+    const isRoad = /[로길]\s*\d/.test(val);
+    if (isRoad && val.length > 4) {
+      disp.style.display = '';
+      disp.textContent = '⚠️ 신주소 감지 — 오른쪽 주소검색 버튼으로 구주소 변환하세요';
+      disp.style.color = 'var(--orange)';
+    } else {
+      disp.style.display = 'none';
+    }
+  }
+}
+
+// blur 시 최종 정규화
+function onAddrBlur(el, dongId) {
+  const dong = dongId ? document.getElementById(dongId)?.value : '잠실본동';
+  const normalized = normalizeAddr(el.value, dong||'잠실본동');
+  el.value = normalized;
+  // 동 자동 분류
+  if (dongId) {
+    const newDong = classifyDong(normalized);
+    const dongEl  = document.getElementById(dongId);
+    if (dongEl && newDong) dongEl.value = newDong;
+  }
+}
+
+// ── 카카오 우편번호 팝업 ──
+function openAddrSearch(addrId, dongId, displayId) {
+  new daum.Postcode({
+    oncomplete: function(data) {
+      // 지번주소 우선, 없으면 도로명
+      const jibun = data.jibunAddress || data.autoJibunAddress || '';
+      const road  = data.roadAddress  || '';
+
+      // 표기 변환
+      const dong    = document.getElementById(dongId)?.value || '잠실본동';
+      const display = document.getElementById(displayId);
+
+      // 지번에서 동 제거 후 숫자만 추출해서 normalizeAddr 처리
+      const normalized = normalizeAddr(jibun || road, dong);
+
+      document.getElementById(addrId).value = normalized;
+
+      // 원래 주소 참고용 표시
+      if (display) {
+        display.style.display = '';
+        display.style.color   = 'var(--purple)';
+        display.textContent   = `지번: ${jibun || '-'}  |  도로명: ${road}`;
+      }
+
+      // 동 자동 분류
+      const newDong = classifyDong(jibun || road);
+      if (dongId && newDong) {
+        const dongEl = document.getElementById(dongId);
+        if (dongEl) dongEl.value = newDong;
+      }
+    }
+  }).open();
+}
+
+// ═══════════════════════════════════════════
+//  통합검색 탭
+// ═══════════════════════════════════════════
+let srchAcIdx = -1;
+
+function getSrchAllRows() {
+  const rows = [];
+  const useW = document.getElementById('src-wongjang')?.checked;
+  const useJ = document.getElementById('src-jiseo')?.checked;
+  const useR = document.getElementById('src-receipt')?.checked;
+
+  // 원장 데이터 (wongjang_data)
+  if (useW) {
+    Object.keys(wongjangData).sort().forEach(d => {
+      const dd = wongjangData[d] || {};
+      ['잠실본동','삼전동'].forEach(s => {
+        (dd[s]||[]).forEach(r => rows.push({...r,
+          _srchSrc:'원장', _srchDate:d, _srchDong:s==='잠실본동'?'잠실동':s}));
+      });
+      if (dd['아파트']) {
+        Object.entries(dd['아파트']).forEach(([sub, list]) => {
+          list.forEach(r => rows.push({...r,
+            _srchSrc:'원장', _srchDate:d, _srchDong:`아파트·${sub}`}));
+        });
+      }
+    });
+  }
+
+  // 작업지시서 (jiseo_data)
+  if (useJ) {
+    Object.keys(jiseoData).sort().forEach(d => {
+      const dd = jiseoData[d] || {};
+      ['잠실본동','삼전동'].forEach(s => {
+        (dd[s]||[]).forEach(r => rows.push({...r,
+          _srchSrc:'작업지시서', _srchDate:d, _srchDong:s==='잠실본동'?'잠실동':s}));
+      });
+      if (dd['아파트']) {
+        Object.entries(dd['아파트']).forEach(([sub, list]) => {
+          list.forEach(r => rows.push({...r,
+            _srchSrc:'작업지시서', _srchDate:d, _srchDong:`아파트·${sub}`}));
+        });
+      }
+    });
+  }
+
+  // 접수목록 (receipt_data)
+  if (useR) {
+    Object.entries(receipts).forEach(([id, r]) => {
+      rows.push({...r,
+        _srchSrc:'접수', _srchDate:r.접수일자||'', _srchDong:r._dong||''});
+    });
+  }
+
+  return rows;
+}
+
+function srchAutoSuggest() {
+  const q   = document.getElementById('srch-input').value.trim();
+  const ac  = document.getElementById('srch-ac');
+  srchAcIdx = -1;
+  if (!q) { ac.style.display='none'; srchRender(); return; }
+
+  const allRows = getSrchAllRows();
+  const ql = q.toLowerCase();
+  const seen = new Set();
+  const suggestions = [];
+
+  allRows.forEach(r => {
+    [['성명','이름'],['주소','주소'],['전화번호','전화'],['품목1','품목']].forEach(([col, type]) => {
+      const v = String(r[col]||'');
+      if (v && v.toLowerCase().includes(ql) && !seen.has(col+':'+v)) {
+        seen.add(col+':'+v);
+        suggestions.push({type, val:v});
+      }
+    });
+  });
+
+  if (!suggestions.length) { ac.style.display='none'; return; }
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  ac.innerHTML = suggestions.slice(0,12).map(s =>
+    `<div class="srch-ac-item" onmousedown="pickSrchAc('${s.val.replace(/'/g,"\'")}')">
+      <span class="srch-ac-badge">${s.type}</span>
+      <span>${s.val.replace(re,'<mark>$1</mark>')}</span>
+    </div>`).join('');
+  ac.style.display = 'block';
+}
+
+function pickSrchAc(val) {
+  document.getElementById('srch-input').value = val;
+  document.getElementById('srch-ac').style.display = 'none';
+  doSrch();
+}
+
+function srchKeydown(e) {
+  const ac    = document.getElementById('srch-ac');
+  const items = [...ac.querySelectorAll('.srch-ac-item')];
+  if (e.key==='ArrowDown') {
+    e.preventDefault();
+    srchAcIdx = Math.min(srchAcIdx+1, items.length-1);
+    items.forEach((el,i) => el.classList.toggle('focused', i===srchAcIdx));
+  } else if (e.key==='ArrowUp') {
+    e.preventDefault();
+    srchAcIdx = Math.max(srchAcIdx-1, 0);
+    items.forEach((el,i) => el.classList.toggle('focused', i===srchAcIdx));
+  } else if (e.key==='Enter') {
+    if (srchAcIdx>=0 && items[srchAcIdx]) {
+      items[srchAcIdx].dispatchEvent(new MouseEvent('mousedown'));
+    } else doSrch();
+  } else if (e.key==='Escape') {
+    ac.style.display='none';
+  }
+}
+
+function doSrch() {
+  document.getElementById('srch-ac').style.display = 'none';
+  const q = document.getElementById('srch-input').value.trim().toLowerCase();
+  if (!q) { srchRender(); return; }
+
+  const SCOLS = ['성명','주소','전화번호','품목1','품목2','품목3','비고'];
+  const allRows = getSrchAllRows();
+  const matched = allRows
+    .filter(r => SCOLS.some(c => String(r[c]||'').toLowerCase().includes(q)))
+    .sort((a,b) => (b._srchDate||'').localeCompare(a._srchDate||''));
+
+  renderSrchTable(matched, q);
+  document.getElementById('srch-count').textContent =
+    matched.length ? `🔍 ${matched.length}건 찾음 / 전체 ${allRows.length}건` : '검색 결과 없음';
+  document.getElementById('srch-count').style.color = matched.length ? 'var(--green)' : 'var(--red)';
+  document.getElementById('srch-result-card').style.display = '';
+}
+
+function srchRender() {
+  // 검색어 없으면 결과 숨기기
+  const q = document.getElementById('srch-input').value.trim();
+  if (!q) {
+    document.getElementById('srch-result-card').style.display = 'none';
+    document.getElementById('srch-count').textContent = '';
+  }
+}
+
+function clearSrch() {
+  document.getElementById('srch-input').value = '';
+  document.getElementById('srch-ac').style.display = 'none';
+  document.getElementById('srch-result-card').style.display = 'none';
+  document.getElementById('srch-count').textContent = '';
+  srchAcIdx = -1;
+}
+
+function renderSrchTable(rows, q) {
+  const re = q ? new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi') : null;
+  const hl = v => re && typeof v==='string' ? v.replace(re,'<mark>$1</mark>') : v;
+
+  const srcBadge = s =>
+    s==='원장'       ? `<span class="badge b-wongjang">📋 원장</span>` :
+    s==='작업지시서'  ? `<span class="badge b-jiseo">🚛 지시서</span>` :
+                       `<span class="badge b-receipt">📥 접수</span>`;
+
+  if (!rows.length) {
+    document.getElementById('srch-tbody').innerHTML =
+      `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">검색 결과가 없습니다</td></tr>`;
+    return;
+  }
+
+  srchCache = rows;  // 전역 캐시 업데이트
+  document.getElementById('srch-tbody').innerHTML = rows.map((r, i) => `<tr style="cursor:pointer;" ondblclick="openSrchModal(${i})">
+    <td>${srcBadge(r._srchSrc)}</td>
+    <td style="font-size:12px;">${r._srchDate||''}</td>
+    <td><span class="badge b-dong">${r._srchDong||r._dong||''}</span></td>
+    <td style="font-weight:700;">${hl(r.성명||'')}</td>
+    <td class="wrap" style="font-size:12px;max-width:140px;">${hl(r.주소||'')}</td>
+    <td style="font-size:12px;">${hl(r.전화번호||'')}</td>
+    <td style="font-size:12px;max-width:120px;">${hl(r.품목1||'')}${r.품목2?'·'+hl(r.품목2):''}</td>
+    <td style="font-weight:700;">${r.총금액||''}</td>
+    <td><span class="badge ${r.입금일자?'b-paid':'b-unpaid'}">${r.입금일자?'✅입금':'⏳미입금'}</span></td>
+    <td style="font-size:12px;">${r.수거일자||''}</td>
+  </tr>`).join('');
+}
+
+// 검색창 바깥 클릭 시 자동완성 닫기
+document.addEventListener('click', e => {
+  if (!e.target.closest('#srch-input') && !e.target.closest('#srch-ac')) {
+    const ac = document.getElementById('srch-ac');
+    if (ac) ac.style.display = 'none';
+  }
+});
+
+</script>
+
+<!-- ══ 통합검색 상세 모달 ══ -->
+<div id="srch-modal" onclick="if(event.target===this)closeSrchModal()"
+  style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.48);
+         align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;padding:28px 30px;
+              width:min(640px,96vw);max-height:88vh;overflow-y:auto;
+              box-shadow:0 24px 60px rgba(0,0,0,.28);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div id="srch-modal-title" style="font-size:17px;font-weight:900;color:#111827;"></div>
+      <button onclick="closeSrchModal()"
+        style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;
+               font-size:18px;cursor:pointer;color:#6b7280;">✕</button>
+    </div>
+    <div id="srch-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ 접수 수정 모달 ══ -->
+<div id="edit-modal" onclick="if(event.target===this)closeEditModal()"
+  style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.48);
+         align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;padding:24px;
+              width:min(620px,98vw);max-height:92vh;overflow-y:auto;
+              box-shadow:0 24px 60px rgba(0,0,0,.28);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:900;">✏️ 접수 수정</div>
+      <button onclick="closeEditModal()"
+        style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">접수일자</label>
+        <input type="date" class="form-input" id="em-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">동 구분</label>
+        <select class="form-select" id="em-dong">
+          <option value="잠실본동">잠실동</option>
+          <option value="삼전동">삼전동</option>
+          <option value="5단지">5단지아파트</option>
+          <option value="트리지움">트리지움</option>
+          <option value="레이크팰리스">레이크팰리스</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">성명</label>
+        <input type="text" class="form-input" id="em-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input type="tel" class="form-input" id="em-phone">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">주소</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-input" id="em-addr"
+            placeholder="구주소 또는 검색" style="flex:1;"
+            onblur="onAddrBlur(this,'em-dong')">
+          <button type="button"
+            style="padding:10px 14px;background:var(--yellow);color:#fff;border:none;
+                   border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;
+                   white-space:nowrap;font-family:var(--font);"
+            onclick="openAddrSearch('em-addr','em-dong','em-addr-display')">
+            🔍 검색
+          </button>
+        </div>
+        <div id="em-addr-display" style="margin-top:4px;font-size:12px;color:var(--purple);font-weight:700;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">품목1</label>
+        <input type="text" class="form-input" id="em-item1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">금액1</label>
+        <input type="text" class="form-input" id="em-amt1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">품목2</label>
+        <input type="text" class="form-input" id="em-item2">
+      </div>
+      <div class="form-group">
+        <label class="form-label">금액2</label>
+        <input type="text" class="form-input" id="em-amt2">
+      </div>
+      <div class="form-group">
+        <label class="form-label">총금액</label>
+        <input type="text" class="form-input" id="em-total">
+      </div>
+      <div class="form-group">
+        <label class="form-label">수거일자</label>
+        <input type="date" class="form-input" id="em-pickup">
+      </div>
+      <div class="form-group">
+        <label class="form-label">입금일자</label>
+        <input type="date" class="form-input" id="em-paid">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">비고</label>
+        <input type="text" class="form-input" id="em-note">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="tb-btn gray" style="flex:1;" onclick="closeEditModal()">취소</button>
+      <button class="tb-btn red" style="flex:1;" onclick="deleteReceipt()">🗑 삭제</button>
+      <button class="tb-btn primary" style="flex:1;" onclick="saveEditReceipt()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  통합검색 상세 모달
+// ═══════════════════════════════════════════
+
+function openSrchModal(i) {
+  const r = srchCache[i];
+  if (!r) return;
+  const fields = [
+    {label:'소스',     val:r._srchSrc||'',          icon:'📂'},
+    {label:'날짜',     val:r._srchDate||'',          icon:'📅'},
+    {label:'동',       val:r._srchDong||r._dong||'', icon:'📍'},
+    {label:'접수일자', val:r.접수일자||'',            icon:'📆'},
+    {label:'성명',     val:r.성명||'',               icon:'🙍'},
+    {label:'주소',     val:r.주소||'',               icon:'📍'},
+    {label:'전화번호', val:r.전화번호||'',            icon:'📞'},
+  ];
+  const rawItems = r._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [{품목:r.품목1||'',금액:r.금액1||''},{품목:r.품목2||'',금액:r.금액2||''},{품목:r.품목3||'',금액:r.금액3||''}]
+        .filter(it => it.품목);
+  items.forEach((it, idx) => {
+    if (it.품목) fields.push({label:`품목${idx+1}`, val:it.품목, icon:'📦'});
+    if (it.금액) fields.push({label:`금액${idx+1}`, val:it.금액, icon:'💵'});
+  });
+  fields.push(
+    {label:'총금액',   val:r.총금액||'',   icon:'💰'},
+    {label:'입금일자', val:r.입금일자||'', icon:'🏦'},
+    {label:'수거일자', val:r.수거일자||'', icon:'🚛'},
+    {label:'수거원',   val:r.수거원||'',   icon:'👷'},
+    {label:'비고',     val:r.비고||'',     icon:'📝'},
+  );
+  document.getElementById('srch-modal-title').textContent = (r.성명||r.주소||'상세') + ' — 상세정보';
+  document.getElementById('srch-modal-body').innerHTML =
+    fields.filter(f=>f.val).map(f=>`
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;
+                  padding:9px 0;border-bottom:1px solid #f3f4f6;align-items:start;">
+        <div style="font-size:12px;font-weight:700;color:#6b7280;">${f.icon} ${f.label}</div>
+        <div style="font-size:14px;font-weight:600;color:#111827;word-break:keep-all;">${f.val}</div>
+      </div>`).join('') || '<div style="color:#9ca3af;font-size:14px;padding:16px 0;">내용 없음</div>';
+  document.getElementById('srch-modal').style.display = 'flex';
+}
+function closeSrchModal() {
+  document.getElementById('srch-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+//  접수 수정 모달
+// ═══════════════════════════════════════════
+let srchCache    = [];
+let editTargetId = null;
+
+function openEditModal(id) {
+  const r = receipts[id];
+  if (!r) return;
+  editTargetId = id;
+  document.getElementById('em-date').value   = r.접수일자||'';
+  document.getElementById('em-dong').value   = r._dong||'잠실본동';
+  document.getElementById('em-name').value   = r.성명||'';
+  document.getElementById('em-phone').value  = r.전화번호||'';
+  document.getElementById('em-addr').value   = r.주소||'';
+  document.getElementById('em-item1').value  = r.품목1||'';
+  document.getElementById('em-amt1').value   = (r.금액1||'').replace(/[^0-9]/g,'');
+  document.getElementById('em-item2').value  = r.품목2||'';
+  document.getElementById('em-amt2').value   = (r.금액2||'').replace(/[^0-9]/g,'');
+  document.getElementById('em-total').value  = (r.총금액||'').replace(/[^0-9]/g,'');
+  document.getElementById('em-pickup').value = r.수거일자||'';
+  document.getElementById('em-paid').value   = r.입금일자||'';
+  document.getElementById('em-note').value   = r.비고||'';
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  editTargetId = null;
+}
+function saveEditReceipt() {
+  if (!editTargetId) return;
+  const amt1  = parseInt(document.getElementById('em-amt1').value||0);
+  const amt2  = parseInt(document.getElementById('em-amt2').value||0);
+  const total = parseInt(document.getElementById('em-total').value||0)||(amt1+amt2);
+  const updates = {
+    접수일자:  document.getElementById('em-date').value,
+    _dong:    document.getElementById('em-dong').value,
+    성명:     document.getElementById('em-name').value.trim(),
+    전화번호: document.getElementById('em-phone').value.trim(),
+    주소:     document.getElementById('em-addr').value.trim(),
+    품목1:    document.getElementById('em-item1').value.trim(),
+    금액1:    amt1 ? amt1.toLocaleString()+'원' : '',
+    품목2:    document.getElementById('em-item2').value.trim(),
+    금액2:    amt2 ? amt2.toLocaleString()+'원' : '',
+    총금액:   total ? total.toLocaleString()+'원' : '',
+    수거일자: document.getElementById('em-pickup').value,
+    입금일자: document.getElementById('em-paid').value,
+    비고:     document.getElementById('em-note').value.trim(),
+  };
+  db.ref(`${DB_RECEIPT}/${editTargetId}`).update(updates)
+    .then(() => { closeEditModal(); showToast('✅ 수정 완료'); })
+    .catch(err => showToast('❌ '+err.message));
+}
+function deleteReceipt() {
+  if (!editTargetId) return;
+  if (!confirm('이 접수 건을 삭제하시겠습니까?')) return;
+  db.ref(`${DB_RECEIPT}/${editTargetId}`).remove()
+    .then(() => { closeEditModal(); showToast('🗑 삭제 완료'); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+// ESC 키 통합
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSrchModal();
+    closeEditModal();
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+  }
+});
+function bulkSetPaid() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const updates = {};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}/입금일자`] = today; });
+  db.ref().update(updates)
+    .then(() => { selectedIds.clear(); showToast(`✅ ${Object.keys(updates).length}건 입금확인 완료`); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function bulkSetPickup() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const d = document.getElementById('bulk-pickup')?.value;
+  if (!d) { showToast('⚠️ 수거일을 선택하세요'); return; }
+  const updates = {};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}/수거일자`] = d; });
+  db.ref().update(updates)
+    .then(() => { selectedIds.clear(); showToast(`✅ ${Object.keys(updates).length}건 수거일 → ${d} 변경`); })
+    .catch(err => showToast('❌ '+err.message));
+}
+</script>
+
+</body>
+</html>

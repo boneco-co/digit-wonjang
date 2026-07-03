@@ -1,0 +1,3698 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>디지털 원장 · 송파구 대형폐기물</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+:root{
+  --blue:#1a56db;--blue-d:#1344b8;--blue-l:#e8f0fe;
+  --green:#16a34a;--green-l:#dcfce7;
+  --red:#dc2626;--red-l:#fee2e2;
+  --yellow:#d97706;--yellow-l:#fef3c7;
+  --purple:#7c3aed;--purple-l:#ede9fe;
+  --orange:#ea580c;--orange-l:#fff7ed;
+  --gray:#6b7280;--gray-l:#f3f4f6;
+  --border:#e5e7eb;--text:#111827;--white:#fff;
+  --font:'Noto Sans KR',-apple-system,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:#f0f4f8;color:var(--text);min-height:100vh;}
+
+/* 헤더 */
+.hdr{background:var(--blue);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.hdr-title{font-size:18px;font-weight:900;color:#fff;}
+.conn-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#9ca3af;flex-shrink:0;}
+.conn-dot.online{background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3);}
+.conn-dot.offline{background:#f87171;}
+.conn-dot.loading{background:#fbbf24;animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* 탭 네비 */
+.tab-nav{background:var(--white);border-bottom:2px solid var(--border);display:flex;overflow-x:auto;position:sticky;top:0;z-index:90;}
+.tab-nav::-webkit-scrollbar{display:none;}
+.nav-tab{padding:14px 20px;font-size:14px;font-weight:800;cursor:pointer;border:none;background:none;font-family:var(--font);color:var(--gray);white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.nav-tab.on{color:var(--blue);border-bottom-color:var(--blue);}
+
+/* 섹션 */
+.section{display:none;max-width:1400px;margin:0 auto;padding:20px 16px 80px;}
+.section.on{display:block;}
+
+/* 카드 */
+.card{background:var(--white);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px;}
+.card-title{font-size:14px;font-weight:800;color:var(--gray);margin-bottom:14px;}
+
+/* 업로드 3열 */
+.upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media(max-width:700px){.upload-grid{grid-template-columns:1fr;}}
+.upload-zone{border:2.5px dashed var(--border);border-radius:14px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-l);}
+.uz-icon{font-size:28px;margin-bottom:6px;}
+.uz-title{font-size:13px;font-weight:800;margin-bottom:4px;}
+.uz-sub{font-size:11px;color:var(--gray);}
+.uz-btn{margin-top:10px;padding:7px 16px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.uz-result{margin-top:10px;padding:8px;background:var(--green-l);border-radius:8px;font-size:11px;font-weight:700;color:var(--green);display:none;}
+
+/* 폼 */
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+.form-label{font-size:12px;font-weight:700;color:var(--gray);}
+.form-input,.form-select{border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);}
+.form-input:focus,.form-select:focus{border-color:var(--blue);}
+
+/* 품목행 */
+.item-row{display:grid;grid-template-columns:1fr 70px 90px 34px;gap:8px;align-items:center;margin-bottom:8px;}
+.item-del{width:34px;height:34px;border:none;background:var(--red-l);color:var(--red);border-radius:8px;cursor:pointer;font-size:16px;}
+.add-item-btn{width:100%;padding:9px;border:2px dashed var(--border);border-radius:10px;background:none;font-size:13px;font-weight:700;cursor:pointer;color:var(--gray);font-family:var(--font);margin-top:4px;}
+.add-item-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+/* 수거일 표시 */
+.auto-date{padding:10px 14px;background:var(--purple-l);border-radius:10px;font-size:13px;font-weight:700;color:var(--purple);margin-top:12px;display:none;}
+
+/* 버튼 */
+.save-btn{width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:900;cursor:pointer;font-family:var(--font);margin-top:16px;}
+.save-btn:hover{background:var(--blue-d);}
+.tb-btn{padding:8px 16px;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);}
+.tb-btn.primary{background:var(--blue);color:#fff;}
+.tb-btn.green{background:var(--green);color:#fff;}
+.tb-btn.red{background:var(--red);color:#fff;}
+.tb-btn.gray{background:var(--gray-l);color:var(--gray);}
+
+/* 툴바 */
+.list-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.list-section{margin-bottom:28px;}
+.list-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-radius:10px 10px 0 0;font-weight:800;font-size:14px;color:#fff;}
+.list-section-header.jamsil{background:#3b82f6;}
+.list-section-header.samjeon{background:#22c55e;color:#fff;}
+.list-section-header.apt{background:#f97316;}
+.list-section-header.special{background:#8b5cf6;}
+.list-section-badge{background:rgba(255,255,255,0.25);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;}
+
+
+/* 테이블 */
+.tbl-wrap{overflow-x:auto;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.rtable{width:100%;border-collapse:collapse;font-size:13px;}
+.rtable thead tr{background:var(--blue);color:#fff;}
+.rtable th{padding:10px 12px;text-align:left;font-size:12px;white-space:nowrap;}
+.rtable td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.rtable tbody tr:hover{background:var(--blue-l);}
+.rtable tbody tr.sel{background:var(--blue-l);}
+
+/* 배지 */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.b-paid{background:var(--green-l);color:var(--green);}
+.b-unpaid{background:var(--yellow-l);color:var(--yellow);}
+.b-gu{background:var(--blue-l);color:var(--blue);}
+.b-ppegi{background:var(--purple-l);color:var(--purple);}
+.b-tel{background:var(--orange-l);color:var(--orange);}
+.b-dong{background:var(--gray-l);color:var(--gray);}
+.b-wait{background:var(--yellow-l);color:var(--yellow);}
+.b-done{background:var(--green-l);color:var(--green);}
+
+/* 통계 */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+.stat-card{background:var(--white);border-radius:12px;padding:12px 18px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px;}
+.stat-n{font-size:22px;font-weight:900;color:var(--blue);}
+.stat-l{font-size:12px;color:var(--gray);}
+
+/* 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--white);border-radius:20px;padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.modal-title{font-size:17px;font-weight:900;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:var(--gray-l);border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;}
+.modal-btns{display:flex;gap:10px;margin-top:16px;}
+.modal-btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font);}
+.modal-btn.cancel{background:var(--gray-l);color:var(--gray);}
+.modal-btn.confirm{background:var(--green);color:#fff;}
+
+/* 환불 검색 */
+.refund-search{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.refund-input{flex:1;min-width:180px;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;font-family:var(--font);outline:none;}
+.refund-input:focus{border-color:var(--blue);}
+.refund-result-card{background:var(--blue-l);border:2px solid var(--blue);border-radius:14px;padding:16px;margin-bottom:14px;display:none;}
+.refund-result-name{font-size:16px;font-weight:900;margin-bottom:6px;}
+.refund-result-detail{font-size:13px;color:var(--gray);}
+
+/* 로딩 */
+
+/* ── 환불 타입 선택 ── */
+.refund-type-btns{display:flex;gap:8px;margin-bottom:14px;}
+.refund-type-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);background:var(--gray-l);color:var(--gray);text-align:center;transition:all .15s;}
+.refund-type-btn.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+/* ── 일부환불 품목 체크 ── */
+.partial-item-check{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.partial-item-check:last-child{border-bottom:none;}
+.partial-item-check label{flex:1;font-size:14px;font-weight:600;cursor:pointer;}
+.partial-item-check .pi-price{font-size:13px;color:var(--blue);font-weight:700;}
+/* ── 휴일 관리 ── */
+.holiday-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:240px;overflow-y:auto;}
+.holiday-chip{padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:2px solid var(--border);text-align:center;transition:all .15s;}
+.holiday-chip.off{background:var(--green-l);border-color:var(--green);color:var(--green);}
+.holiday-chip.on{background:var(--red-l);border-color:var(--red);color:var(--red);}
+
+
+/* ── 품목 자동완성 ── */
+.item-ac-wrap{position:relative;flex:1;min-width:0;}
+.item-ac-input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--font);outline:none;}
+.item-ac-input:focus{border-color:var(--blue);}
+.item-ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:2px solid var(--blue);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:200;max-height:240px;overflow-y:auto;display:none;}
+.item-ac-list.open{display:block;}
+.item-ac-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);font-size:14px;}
+.item-ac-item:last-child{border-bottom:none;}
+.item-ac-item:hover,.item-ac-item.active{background:var(--blue-l);}
+.item-ac-item .ac-price{font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap;margin-left:10px;}
+.item-ac-item .ac-item-main{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.item-ac-item .ac-item-name{font-weight:700;color:var(--text);}
+.item-ac-item .ac-item-spec{font-size:12px;color:var(--gray);}
+
+
+/* ── 통합검색 탭 ── */
+.srch-input:focus{border-color:var(--blue)!important;}
+.srch-ac-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.srch-ac-item:last-child{border-bottom:none;}
+.srch-ac-item:hover,.srch-ac-item.focused{background:var(--blue-l);}
+.srch-ac-badge{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--blue-l);color:var(--blue);font-weight:700;white-space:nowrap;}
+.b-wongjang{background:var(--blue-l);color:var(--blue);}
+.b-jiseo{background:var(--green-l);color:var(--green);}
+.b-receipt{background:var(--orange-l);color:var(--orange);}
+
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+.loading-overlay.hidden{display:none;}
+.spinner{width:38px;height:38px;border:4px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;font-weight:700;color:var(--gray);}
+
+/* 토스트 */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 22px;border-radius:12px;font-size:14px;font-weight:700;z-index:999;display:none;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-title">📋 디지털 원장 · 송파구</div>
+  <div class="conn-badge">
+    <span class="conn-dot loading" id="conn-dot"></span>
+    <span id="conn-text">연결 중…</span>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="nav-tab on" onclick="showTab('input',this)">📥 접수입력</button>
+  <button class="nav-tab" onclick="showTab('list',this)">📋 접수목록</button>
+  <button class="nav-tab" onclick="showTab('search',this)">🔍 통합검색</button>
+  <button class="nav-tab" onclick="showTab('refund',this)">💰 환불관리</button>
+  <button class="nav-tab" onclick="showTab('holiday',this)">📅 휴일관리</button>
+  <button class="nav-tab" onclick="showTab('test',this)">🧪 테스트</button>
+</div>
+
+<!-- ══ 탭1: 접수입력 ══ -->
+<div class="section on" id="tab-input">
+
+  <!-- 파일 업로드 -->
+  <div class="card">
+    <div class="card-title">📂 파일 업로드</div>
+    <div class="upload-grid">
+      <div class="upload-zone" id="uz-gu"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'gu')">
+        <div class="uz-icon">🏛</div>
+        <div class="uz-title">송파구청</div>
+        <div class="uz-sub">인터넷접수 xls</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-gu').click()">파일 선택</button>
+        <input type="file" id="fi-gu" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'gu')">
+        <div class="uz-result" id="ur-gu"></div>
+      </div>
+      <div class="upload-zone" id="uz-ppegi"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'ppegi')">
+        <div class="uz-icon">📱</div>
+        <div class="uz-title">빼기앱</div>
+        <div class="uz-sub">작업내역 xlsx</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-ppegi').click()">파일 선택</button>
+        <input type="file" id="fi-ppegi" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'ppegi')">
+        <div class="uz-result" id="ur-ppegi"></div>
+      </div>
+      <div class="upload-zone" id="uz-bank"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event,'bank')">
+        <div class="uz-icon">🏦</div>
+        <div class="uz-title">은행 입금내역</div>
+        <div class="uz-sub">KB국민은행 xls</div>
+        <button class="uz-btn" onclick="document.getElementById('fi-bank').click()">파일 선택</button>
+        <input type="file" id="fi-bank" accept=".xls,.xlsx" style="display:none" onchange="handleFile(this,'bank')">
+        <div class="uz-result" id="ur-bank"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 수기입력 -->
+  <div class="card">
+    <div class="card-title">✏️ 수기 입력 (전화 접수)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">접수일자</label>
+        <input type="date" class="form-input" id="f-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">접수구분</label>
+        <select class="form-select" id="f-source">
+          <option value="전화">📞 전화접수</option>
+          <option value="아파트">🏢 아파트</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">동 구분</label>
+        <select class="form-select" id="f-dong" onchange="calcPickupDate()">
+          <option value="잠실본동">잠실동</option>
+          <option value="삼전동">삼전동</option>
+          <option value="5단지">5단지아파트</option>
+          <option value="트리지움">트리지움</option>
+          <option value="레이크팰리스">레이크팰리스</option>
+          <option value="우성4차">우성4차</option>
+          <option value="잠실현대">잠실현대</option>
+          <option value="삼전현대">삼전현대</option>
+          <option value="가락시장">가락시장</option>
+          <option value="특수마대">특수마대</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">성명</label>
+        <input type="text" class="form-input" id="f-name" placeholder="홍길동">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">주소</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-input" id="f-addr"
+            placeholder="구주소 직접 입력 또는 오른쪽 버튼으로 검색"
+            style="flex:1;"
+            oninput="liveNormalizeAddr('f-addr','f-dong')"
+            onblur="onAddrBlur(this,'f-dong')">
+          <button type="button"
+            style="padding:10px 14px;background:var(--yellow);color:#fff;border:none;
+                   border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;
+                   white-space:nowrap;font-family:var(--font);"
+            onclick="openAddrSearch('f-addr','f-dong','f-addr-display')">
+            🔍 주소검색
+          </button>
+        </div>
+        <div id="f-addr-display" style="margin-top:4px;font-size:12px;color:var(--purple);
+             font-weight:700;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+          접수자
+          <button type="button" onclick="open접수자설정()"
+            style="font-size:10px;padding:2px 8px;background:var(--gray-l);border:1.5px solid var(--border);
+                   border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--gray);font-weight:700;">
+            ⚙ 편집
+          </button>
+        </label>
+        <select class="form-select" id="f-접수자"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input type="tel" class="form-input" id="f-phone" placeholder="01012345678" maxlength="13" oninput="formatPhone(event)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">수거일자</label>
+        <input type="date" class="form-input" id="f-emit" style="background:var(--blue-l);color:var(--blue);font-weight:700;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">접수방법</label>
+        <select class="form-select" id="f-estimate" onchange="calcPickupDate()">
+          <option value="no">일반접수</option>
+          <option value="yes">견적</option>
+          <option value="apt">아파트일괄</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="auto-date" id="auto-date-box">
+      📅 수거 예정일: <span id="auto-date-val" style="font-size:15px;"></span>
+    </div>
+
+    <!-- 품목 -->
+    <div style="margin-top:16px;">
+      <div class="form-label" style="margin-bottom:8px;">📦 품목</div>
+      <div id="item-rows"></div>
+      <button class="add-item-btn" onclick="addItemRow()">+ 품목 추가</button>
+    </div>
+
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label class="form-label">총금액 (자동계산)</label>
+        <input type="text" class="form-input" id="f-total" readonly style="background:var(--gray-l);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비고</label>
+        <input type="text" class="form-input" id="f-note" placeholder="배출장소 상세, 특이사항">
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveManual()">💾 접수 저장</button>
+  </div>
+</div>
+
+<!-- ══ 탭2: 접수목록 ══ -->
+<div class="section" id="tab-list">
+  <div class="stats-row" id="stats-row"></div>
+  <div class="card">
+    <div class="card-title">📋 접수 목록</div>
+    <div class="list-toolbar">
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="chk-all" onchange="toggleAll(this.checked)"> 전체선택
+      </label>
+      <button class="tb-btn green" onclick="createJiseo()">🚛 작업지시서 생성</button>
+      <button class="tb-btn primary" onclick="exportExcel()">📥 엑셀 다운</button>
+      <button class="tb-btn" style="background:var(--green);color:#fff;" onclick="bulkSetPaid()">💰 입금확인</button>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <input type="date" id="bulk-pickup" class="form-select" style="padding:7px 8px;font-size:12px;">
+        <button class="tb-btn" style="background:var(--purple);color:#fff;" onclick="bulkSetPickup()">🚛 수거일변경</button>
+      </div>
+      <button class="tb-btn red" onclick="deleteSelected()">🗑 선택 삭제</button>
+      <button class="tb-btn" style="background:#9ca3af;color:#fff;margin-left:auto;font-size:11px;padding:6px 10px;" onclick="if(confirm('⚠️ 모든 접수 데이터를 삭제하시겠습니까?')) { db.ref('receipt_data').remove(); showToast('✅ 접수목록 초기화 완료'); selectedIds.clear(); renderTable(); }">🔄 초기화</button>
+    </div>
+    <div id="list-sections"></div>
+  </div>
+</div>
+
+<!-- ══ 탭3: 환불관리 ══ -->
+<div class="section" id="tab-refund">
+  <div class="card">
+    <div class="card-title">💰 환불 접수 (전화 올 때)</div>
+    <div class="refund-search">
+      <input type="text" class="refund-input" id="rf-search" placeholder="이름 또는 주소 검색">
+      <button class="tb-btn primary" onclick="searchRefund()">🔍 검색</button>
+    </div>
+    <div class="refund-result-card" id="rf-result-card">
+      <div class="refund-result-name" id="rf-result-name"></div>
+      <div class="refund-result-detail" id="rf-result-detail"></div>
+      <button class="tb-btn primary" style="margin-top:10px;" onclick="openRefundForm()">이 건으로 환불접수</button>
+    </div>
+    <div id="rf-form" style="display:none;">
+      <!-- 전체/일부환불 선택 -->
+      <div class="form-label" style="margin-bottom:8px;">환불 유형</div>
+      <div class="refund-type-btns">
+        <div class="refund-type-btn on" id="rft-full" onclick="setRefundType('full')">💰 전체환불</div>
+        <div class="refund-type-btn" id="rft-partial" onclick="setRefundType('partial')">⚠️ 일부환불</div>
+      </div>
+      <!-- 일부환불: 품목별 체크 -->
+      <div id="rf-partial-items" style="display:none;background:var(--gray-l);border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div class="form-label" style="margin-bottom:8px;">환불할 품목 선택</div>
+        <div id="rf-item-checks"></div>
+        <div style="margin-top:10px;font-size:13px;color:var(--gray);">
+          선택 환불액: <b id="rf-partial-total" style="color:var(--orange);">0원</b>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">예금주</label>
+          <input type="text" class="form-input" id="rf-owner" placeholder="홍길동">
+        </div>
+        <div class="form-group">
+          <label class="form-label">은행</label>
+          <select class="form-select" id="rf-bank">
+            <option>KB국민</option><option>신한</option><option>우리</option>
+            <option>하나</option><option>농협</option><option>기업</option>
+            <option>카카오뱅크</option><option>토스뱅크</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">계좌번호</label>
+          <input type="text" class="form-input" id="rf-account" placeholder="000-000-000000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">환불액 <span style="font-size:10px;color:var(--gray);">(수정가능)</span></label>
+          <input type="text" class="form-input" id="rf-amount" placeholder="0">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">사유</label>
+          <input type="text" class="form-input" id="rf-reason" placeholder="부재중, 주소불일치, 물건 없음 등">
+        </div>
+      </div>
+      <button class="save-btn" style="background:var(--orange);" onclick="saveRefund()">💰 환불접수 저장</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 환불 목록</div>
+    <div class="list-toolbar">
+      <button class="tb-btn gray" onclick="setRefundFilter('all')">전체</button>
+      <button class="tb-btn gray" onclick="setRefundFilter('wait')">⏳ 대기</button>
+      <button class="tb-btn gray" onclick="setRefundFilter('done')">✅ 완료</button>
+      <button class="tb-btn green" onclick="bulkRefundDone()">✅ 선택 환불완료</button>
+      <button class="tb-btn primary" onclick="exportRefundExcel()">📥 엑셀 다운</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" onchange="toggleRefundAll(this.checked)"></th>
+            <th>접수일</th><th>입금자</th><th>입금액</th><th>유형</th><th>환불액</th>
+            <th>예금주</th><th>은행</th><th>계좌</th><th>품목</th><th>사유</th><th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="refund-tbody">
+          <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--gray);">환불 내역이 없습니다</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══ 탭: 통합검색 ══ -->
+<div class="section" id="tab-search">
+  <!-- 검색 소스 선택 -->
+  <div class="card">
+    <div class="card-title">🔍 통합검색</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-wongjang" checked onchange="srchRender()"> 📋 원장 (wongjang_data)
+      </label>
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-jiseo" checked onchange="srchRender()"> 🚛 작업지시서 (jiseo_data)
+      </label>
+      <label style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="src-receipt" checked onchange="srchRender()"> 📥 접수목록 (receipt_data)
+      </label>
+    </div>
+    <!-- 검색창 -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="search-input-wrap" style="flex:1;min-width:200px;position:relative;">
+        <input type="text" class="srch-input" id="srch-input"
+          placeholder="이름 · 주소 · 전화번호 · 품목 입력"
+          autocomplete="off"
+          oninput="srchAutoSuggest()"
+          onkeydown="srchKeydown(event)"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:12px 16px;font-size:15px;font-family:var(--font);outline:none;">
+        <div id="srch-ac" style="position:absolute;top:calc(100% + 4px);left:0;right:0;
+          background:var(--white);border:2px solid var(--blue);border-radius:12px;
+          box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:280px;overflow-y:auto;
+          display:none;z-index:200;"></div>
+      </div>
+      <button class="tb-btn primary" onclick="doSrch()">🔍 검색</button>
+      <button class="tb-btn gray" onclick="clearSrch()">✕ 초기화</button>
+      <span id="srch-count" style="font-size:13px;color:var(--gray);font-weight:700;"></span>
+    </div>
+  </div>
+
+  <!-- 검색결과 테이블 -->
+  <div class="card" id="srch-result-card" style="display:none;">
+    <div class="tbl-wrap">
+      <table class="rtable" id="srch-table">
+        <thead>
+          <tr>
+            <th>소스</th><th>접수일</th><th>동</th><th>성명</th><th>주소</th>
+            <th>전화번호</th><th>품목1</th><th>금액1</th><th>품목2</th><th>금액2</th>
+            <th>총금액</th><th>입금</th><th>수거일</th><th>비고</th>
+          </tr>
+        </thead>
+        <tbody id="srch-tbody">
+          <tr><td colspan="14" style="text-align:center;padding:40px;color:var(--gray);">검색어를 입력하세요</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 탭4: 휴일관리 ══ -->
+<div class="section" id="tab-holiday">
+  <div class="card">
+    <div class="card-title">📅 작업일 관리 — 휴일/정상 수동 설정</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:14px;">
+      날짜를 클릭하면 <span style="color:var(--green);font-weight:700;">정상작업일</span> ↔ <span style="color:var(--red);font-weight:700;">휴무일</span> 토글됩니다.<br>
+      설정된 휴일은 수거일 자동계산에 즉시 반영됩니다.
+    </div>
+    <!-- 날짜 추가 -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+      <input type="date" class="form-input" id="holiday-add-date" style="width:auto;">
+      <button class="tb-btn red" onclick="addHoliday()">🚫 휴무일 추가</button>
+      <button class="tb-btn green" onclick="removeHoliday()">✅ 정상작업일 복원</button>
+    </div>
+    <!-- 현재 휴일 목록 -->
+    <div class="form-label" style="margin-bottom:8px;">현재 설정된 휴무일 (클릭하면 삭제)</div>
+    <div class="holiday-grid" id="holiday-grid"></div>
+    <!-- 기본 공휴일 목록 -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="form-label" style="margin-bottom:8px;">📌 2026년 기본 공휴일</div>
+      <div class="holiday-grid" id="holiday-base-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 작업지시서 생성 모달 -->
+<div class="modal-overlay" id="jiseo-modal" onclick="if(event.target===this)closeModal('jiseo-modal')">
+  <div class="modal-box">
+    <div class="modal-title">
+      🚛 작업지시서 생성
+      <button class="modal-close" onclick="closeModal('jiseo-modal')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:12px;">선택된 건을 작업지시서로 생성합니다. 기사앱에 즉시 반영됩니다.</div>
+    <div id="jiseo-preview" style="background:var(--gray-l);border-radius:10px;padding:14px;font-size:13px;max-height:200px;overflow-y:auto;margin-bottom:14px;line-height:1.8;"></div>
+    <div class="form-group">
+      <label class="form-label">수거일자</label>
+      <input type="date" class="form-input" id="jiseo-date">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="closeModal('jiseo-modal')">취소</button>
+      <button class="modal-btn" style="background:var(--green);color:#fff;flex:1.5;" onclick="confirmJiseo()">✅ 생성 및 기사앱 전송</button>
+      <button class="modal-btn" style="background:#6b7280;color:#fff;" onclick="exportJiseoExcel()">📥 엑셀만</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 접수자 설정 모달 ══ -->
+<div id="접수자-modal" onclick="if(event.target===this)this.style.display='none'"
+  style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.45);
+         align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:24px;width:min(380px,90vw);
+              box-shadow:0 20px 50px rgba(0,0,0,.22);">
+    <div style="font-size:16px;font-weight:900;margin-bottom:6px;">⚙️ 접수자 목록 설정</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:12px;">한 줄에 이름 하나씩 입력 (예: 심 / 권 / 김 / 이)</div>
+    <textarea id="접수자-input"
+      style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;
+             font-size:14px;font-family:var(--font);height:130px;resize:none;outline:none;line-height:1.8;"
+      placeholder="심&#10;권&#10;김&#10;이"></textarea>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button onclick="document.getElementById('접수자-modal').style.display='none'"
+        style="flex:1;padding:11px;background:var(--gray-l);border:none;border-radius:10px;
+               font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--gray);">취소</button>
+      <button onclick="save접수자설정()"
+        style="flex:1;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:10px;
+               font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">처리 중…</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ Firebase 설정 ══
+const firebaseConfig = {
+  apiKey:            "AIzaSyD4hPKN8cdtnsVACdvBxDfoR33mAOYEuco",
+  authDomain:        "boneco-wonjang.firebaseapp.com",
+  databaseURL:       "https://boneco-wonjang-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "boneco-wonjang",
+  storageBucket:     "boneco-wonjang.firebasestorage.app",
+  messagingSenderId: "463413861191",
+  appId:             "1:463413861191:web:c6a68b67fe000baae64a62"
+};
+const DB_RECEIPT  = 'receipt_data';
+const DB_WONGJANG = 'wongjang_data';
+const DB_JISEO   = 'jiseo_data';
+const DB_REFUND  = 'refund_data';
+const DB_PPEGI   = 'ppegi_keys';
+
+// ── 카카오 주소 API ──
+const KAKAO_API_KEY = '3c1012691c2c9f444b70b2c4ce936c98';
+
+// 도로명주소 → '본/삼 본번-부번' 변환 (카카오 로컬 API)
+async function kakaoAddrToJibun(roadAddrRaw) {
+  try {
+    const query = roadAddrRaw.replace(/\s*[（(][^)）]*[)）]/g,'').trim();
+    const url   = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`;
+    const res   = await fetch(url, { headers:{ 'Authorization': `KakaoAK ${KAKAO_API_KEY}` } });
+    if (!res.ok) return null;
+    const data  = await res.json();
+    if (!data.documents?.length) return null;
+
+    const doc  = data.documents[0];
+    const addr = doc.address; // 지번주소 객체
+    if (!addr) return null;
+
+    const mainNo = String(addr.main_address_no || '').trim();
+    const subNo  = String(addr.sub_address_no  || '').trim();
+    const dong3  = addr.region_3depth_name || ''; // 잠실본동, 삼전동 등
+    if (!mainNo) return null;
+
+    const jibun  = (subNo && subNo !== '0') ? `${mainNo}-${subNo}` : mainNo;
+    const prefix = dong3.includes('삼전') ? '삼' : '본';
+    return `${prefix} ${jibun}`;
+  } catch { return null; }
+}
+
+// 공휴일
+const HOLIDAYS = [
+  "2026-01-01","2026-01-28","2026-01-29","2026-01-30",
+  "2026-03-01","2026-05-05","2026-05-25","2026-06-06",
+  "2026-08-15","2026-09-24","2026-09-25","2026-09-26",
+  "2026-10-03","2026-10-09","2026-12-25"
+];
+
+// 가격표
+const PRICE_LIST = [
+  {item:"(입)간판",spec:"40cm ×100cm 당",name:"(입)간판 (40cm ×100cm 당)",price:4000},
+  {item:"(입)간판",spec:"가장 긴면 1m 미만",name:"(입)간판 (가장 긴면 1m 미만)",price:1000},
+  {item:"(입)간판",spec:"가장 긴면 1m 이상",name:"(입)간판 (가장 긴면 1m 이상)",price:2000},
+  {item:"(입)간판",spec:"고무통 입간판",name:"(입)간판 (고무통 입간판)",price:5000},
+  {item:"DVD,비디오(VTR)",spec:"",name:"DVD,비디오(VTR)",price:0},
+  {item:"TV",spec:"25인치 미만",name:"TV (25인치 미만)",price:3000},
+  {item:"TV",spec:"25인치 이상",name:"TV (25인치 이상)",price:5000},
+  {item:"TV",spec:"42인치 이상",name:"TV (42인치 이상)",price:7000},
+  {item:"TV받침",spec:"",name:"TV받침",price:3000},
+  {item:"가방류",spec:"가장긴면 50cm 미만",name:"가방류 (가장긴면 50cm 미만)",price:2000},
+  {item:"가방류",spec:"가장긴면 50cm 이상",name:"가방류 (가장긴면 50cm 이상)",price:3000},
+  {item:"가스레인지",spec:"",name:"가스레인지",price:0},
+  {item:"가스오븐렌지",spec:"높이 1m 미만",name:"가스오븐렌지 (높이 1m 미만)",price:0},
+  {item:"가스오븐렌지",spec:"높이 1m 이상",name:"가스오븐렌지 (높이 1m 이상)",price:5000},
+  {item:"가습기",spec:"",name:"가습기",price:0},
+  {item:"거실장",spec:"너비 120cm 미만",name:"거실장 (너비 120cm 미만)",price:4000},
+  {item:"거실장",spec:"너비 120cm 이상",name:"거실장 (너비 120cm 이상)",price:6000},
+  {item:"거실장",spec:"너비 180cm 이상",name:"거실장 (너비 180cm 이상)",price:10000},
+  {item:"거울",spec:"가장 긴면 50cm미만",name:"거울 (가장 긴면 50cm미만)",price:1000},
+  {item:"거울",spec:"가장 긴면 50cm이상",name:"거울 (가장 긴면 50cm이상)",price:2000},
+  {item:"게시판(화이트보드)",spec:"가장 긴면 1m미만",name:"게시판(화이트보드) (가장 긴면 1m미만)",price:1000},
+  {item:"게시판(화이트보드)",spec:"가장 긴면 1m이상",name:"게시판(화이트보드) (가장 긴면 1m이상)",price:2000},
+  {item:"게임기오락기",spec:"50cm 미만",name:"게임기오락기 (50cm 미만)",price:3000},
+  {item:"게임기오락기",spec:"50cm 이상",name:"게임기오락기 (50cm 이상)",price:5000},
+  {item:"게임기오락기",spec:"전문 업소용",name:"게임기오락기 (전문 업소용)",price:12000},
+  {item:"고무통",spec:"지름 1m 이상",name:"고무통 (지름 1m 이상)",price:5000},
+  {item:"고무통",spec:"지름 50cm미만",name:"고무통 (지름 50cm미만)",price:3000},
+  {item:"고무통",spec:"지름 50cm이상",name:"고무통 (지름 50cm이상)",price:4000},
+  {item:"공기청정기",spec:"가장긴면 1m미만",name:"공기청정기 (가장긴면 1m미만)",price:0},
+  {item:"공기청정기",spec:"가장긴면 1m이상",name:"공기청정기 (가장긴면 1m이상)",price:4000},
+  {item:"공기청정기",spec:"영업용",name:"공기청정기 (영업용)",price:15000},
+  {item:"교자상․밥상",spec:"4인 미만",name:"교자상․밥상 (4인 미만)",price:1500},
+  {item:"교자상․밥상",spec:"4인 이상",name:"교자상․밥상 (4인 이상)",price:2000},
+  {item:"교자상․밥상",spec:"차식탁 (다과상)",name:"교자상․밥상 (차식탁 (다과상))",price:1000},
+  {item:"금고(가정용)",spec:"가장 긴면 1m 미만",name:"금고(가정용) (가장 긴면 1m 미만)",price:15000},
+  {item:"금고(가정용)",spec:"가장 긴면 30cm 미만",name:"금고(가정용) (가장 긴면 30cm 미만)",price:10000},
+  {item:"기름탱크",spec:"400L 미만",name:"기름탱크 (400L 미만)",price:4000},
+  {item:"기름탱크",spec:"400L 이상",name:"기름탱크 (400L 이상)",price:7000},
+  {item:"김치냉장고",spec:"130L 미만",name:"김치냉장고 (130L 미만)",price:3000},
+  {item:"김치냉장고",spec:"130L 이상",name:"김치냉장고 (130L 이상)",price:5000},
+  {item:"난로",spec:"가스",name:"난로 (가스)",price:2000},
+  {item:"난로",spec:"벽걸이",name:"난로 (벽걸이)",price:0},
+  {item:"난로",spec:"석유",name:"난로 (석유)",price:2000},
+  {item:"난로",spec:"전기",name:"난로 (전기)",price:0},
+  {item:"냉장고",spec:"300L 미만",name:"냉장고 (300L 미만)",price:5000},
+  {item:"냉장고",spec:"300L 이상",name:"냉장고 (300L 이상)",price:7000},
+  {item:"냉장고",spec:"500L 이상",name:"냉장고 (500L 이상)",price:10000},
+  {item:"냉장고",spec:"영업용 (대형)",name:"냉장고 (영업용 (대형))",price:20000},
+  {item:"노트북컴퓨터",spec:"",name:"노트북컴퓨터",price:0},
+  {item:"녹즙기",spec:"",name:"녹즙기",price:0},
+  {item:"다리미",spec:"",name:"다리미",price:0},
+  {item:"다리미판",spec:"",name:"다리미판",price:1000},
+  {item:"도마",spec:"가정용 나무도마",name:"도마 (가정용 나무도마)",price:1000},
+  {item:"도마",spec:"업소용 나무도마",name:"도마 (업소용 나무도마)",price:2000},
+  {item:"돗자리(대자리,놀이매트)",spec:"1㎡당",name:"돗자리(대자리,놀이매트) (1㎡당)",price:1000},
+  {item:"라지에터",spec:"",name:"라지에터",price:4000},
+  {item:"라켓",spec:"배드민턴 라켓",name:"라켓 (배드민턴 라켓)",price:500},
+  {item:"라켓",spec:"테니스 라켓",name:"라켓 (테니스 라켓)",price:1000},
+  {item:"렌지대수납장",spec:"",name:"렌지대수납장",price:4000},
+  {item:"마네킹",spec:"1m 미만",name:"마네킹 (1m 미만)",price:3000},
+  {item:"마네킹",spec:"1m 이상",name:"마네킹 (1m 이상)",price:5000},
+  {item:"모뎀",spec:"",name:"모뎀",price:0},
+  {item:"목욕탕수건함",spec:"",name:"목욕탕수건함",price:1000},
+  {item:"문갑",spec:"",name:"문갑",price:3000},
+  {item:"문짝",spec:"",name:"문짝",price:4000},
+  {item:"물탱크",spec:"0.5톤 미만",name:"물탱크 (0.5톤 미만)",price:3000},
+  {item:"물탱크",spec:"0.5톤 이상",name:"물탱크 (0.5톤 이상)",price:4000},
+  {item:"물탱크",spec:"1톤당",name:"물탱크 (1톤당)",price:6000},
+  {item:"믹서기",spec:"",name:"믹서기",price:0},
+  {item:"바둑판",spec:"두께 12mm",name:"바둑판 (두께 12mm)",price:1000},
+  {item:"바둑판",spec:"두께 60mm 이상",name:"바둑판 (두께 60mm 이상)",price:2000},
+  {item:"발마사지기계",spec:"",name:"발마사지기계",price:0},
+  {item:"방석",spec:"겨울용",name:"방석 (겨울용)",price:1000},
+  {item:"방석",spec:"여름용",name:"방석 (여름용)",price:500},
+  {item:"배기후드",spec:"",name:"배기후드",price:2000},
+  {item:"베개(라텍스베개)",spec:"",name:"베개(라텍스베개)",price:1000},
+  {item:"벽시계",spec:"길이 1m미만, 지름 28cm미만",name:"벽시계 (길이 1m미만, 지름 28cm미만)",price:1000},
+  {item:"벽시계",spec:"길이 1m이상, 지름 28cm이상",name:"벽시계 (길이 1m이상, 지름 28cm이상)",price:2000},
+  {item:"변기",spec:"양변기",name:"변기 (양변기)",price:8000},
+  {item:"변기",spec:"좌변기",name:"변기 (좌변기)",price:5000},
+  {item:"병풍",spec:"2폭당",name:"병풍 (2폭당)",price:1000},
+  {item:"보온밥통",spec:"",name:"보온밥통",price:0},
+  {item:"보일러",spec:"16kcal/h 미만",name:"보일러 (16kcal/h 미만)",price:10000},
+  {item:"보일러",spec:"16kcal/h 이상",name:"보일러 (16kcal/h 이상)",price:12000},
+  {item:"보행기",spec:"",name:"보행기",price:2000},
+  {item:"복사기",spec:"영업용",name:"복사기 (영업용)",price:10000},
+  {item:"블라인드",spec:"1㎡당",name:"블라인드 (1㎡당)",price:1000},
+  {item:"비닐옷장(비키니옷장)",spec:"",name:"비닐옷장(비키니옷장)",price:3000},
+  {item:"비데",spec:"",name:"비데",price:1000},
+  {item:"빨래건조대",spec:"길이 1m 미만",name:"빨래건조대 (길이 1m 미만)",price:1000},
+  {item:"빨래건조대",spec:"길이 1m 이상",name:"빨래건조대 (길이 1m 이상)",price:2000},
+  {item:"서랍장",spec:"4단 이하",name:"서랍장 (4단 이하)",price:3000},
+  {item:"서랍장",spec:"5단 이상",name:"서랍장 (5단 이상)",price:5000},
+  {item:"선풍기",spec:"가정용",name:"선풍기 (가정용)",price:0},
+  {item:"선풍기",spec:"업소용(스탠드형)",name:"선풍기 (업소용(스탠드형))",price:3000},
+  {item:"세면대",spec:"세면대 세트",name:"세면대 (세면대 세트)",price:3000},
+  {item:"세탁기",spec:"10kg 이상",name:"세탁기 (10kg 이상)",price:4000},
+  {item:"세탁기",spec:"10kg 이하",name:"세탁기 (10kg 이하)",price:3000},
+  {item:"소화기",spec:"대형(20㎏ 이상)",name:"소화기 (대형(20㎏ 이상))",price:3000},
+  {item:"소화기",spec:"소형(4.5㎏ 이하)",name:"소화기 (소형(4.5㎏ 이하))",price:1000},
+  {item:"소화기",spec:"중형 (4.5㎏초과 20㎏미만)",name:"소화기 (중형 (4.5㎏초과 20㎏미만))",price:2000},
+  {item:"쇼파",spec:"1인용",name:"쇼파 (1인용)",price:4000},
+  {item:"쇼파",spec:"2인용",name:"쇼파 (2인용)",price:7000},
+  {item:"쇼파",spec:"3인용",name:"쇼파 (3인용)",price:10000},
+  {item:"쇼파",spec:"4인용",name:"쇼파 (4인용)",price:13000},
+  {item:"쇼파",spec:"스툴",name:"쇼파 (스툴)",price:3000},
+  {item:"수도호스",spec:"10m 당",name:"수도호스 (10m 당)",price:1000},
+  {item:"스캐너",spec:"",name:"스캐너",price:0},
+  {item:"스키",spec:"스키(부츠별도)",name:"스키 (스키(부츠별도))",price:3000},
+  {item:"스키",spec:"스키부츠",name:"스키 (스키부츠)",price:2000},
+  {item:"스탠드옷걸이",spec:"가정용(행거)",name:"스탠드옷걸이 (가정용(행거))",price:2000},
+  {item:"식기건조기",spec:"높이 1m 미만",name:"식기건조기 (높이 1m 미만)",price:0},
+  {item:"식기건조기",spec:"높이 1m 이상",name:"식기건조기 (높이 1m 이상)",price:5000},
+  {item:"식기세척기",spec:"높이 1m 미만",name:"식기세척기 (높이 1m 미만)",price:0},
+  {item:"식기세척기",spec:"높이 1m 이상",name:"식기세척기 (높이 1m 이상)",price:5000},
+  {item:"식탁(나무)",spec:"3인 이하",name:"식탁(나무) (3인 이하)",price:3000},
+  {item:"식탁(나무)",spec:"4인 이상",name:"식탁(나무) (4인 이상)",price:4000},
+  {item:"식탁(나무)",spec:"6인 이상",name:"식탁(나무) (6인 이상)",price:5000},
+  {item:"식탁(대리석)",spec:"4인 이상",name:"식탁(대리석) (4인 이상)",price:10000},
+  {item:"식탁(대리석)",spec:"6인 이상",name:"식탁(대리석) (6인 이상)",price:13000},
+  {item:"신발장",spec:"높이 1.5m 미만",name:"신발장 (높이 1.5m 미만)",price:2000},
+  {item:"신발장",spec:"높이 1.5m 이상",name:"신발장 (높이 1.5m 이상)",price:4000},
+  {item:"싱크대",spec:"개당",name:"싱크대 (개당)",price:5000},
+  {item:"쌀통",spec:"",name:"쌀통",price:3000},
+  {item:"쓰레기통",spec:"가정용",name:"쓰레기통 (가정용)",price:1000},
+  {item:"쓰레기통",spec:"사무실 옥외용",name:"쓰레기통 (사무실 옥외용)",price:2000},
+  {item:"아이스박스",spec:"30L 미만",name:"아이스박스 (30L 미만)",price:1000},
+  {item:"아이스박스",spec:"30L 이상",name:"아이스박스 (30L 이상)",price:2000},
+  {item:"아이스박스",spec:"50L 이상",name:"아이스박스 (50L 이상)",price:3000},
+  {item:"안마기",spec:"",name:"안마기",price:2000},
+  {item:"안마의자",spec:"",name:"안마의자",price:10000},
+  {item:"액자",spec:"가장 긴면 100cm초과",name:"액자 (가장 긴면 100cm초과)",price:3000},
+  {item:"액자",spec:"가장 긴면 50cm미만",name:"액자 (가장 긴면 50cm미만)",price:1000},
+  {item:"액자",spec:"가장 긴면 50cm이상",name:"액자 (가장 긴면 50cm이상)",price:2000},
+  {item:"어항(수족관)",spec:"가장 긴면 1m미만",name:"어항(수족관) (가장 긴면 1m미만)",price:1000},
+  {item:"어항(수족관)",spec:"가장 긴면 1m이상",name:"어항(수족관) (가장 긴면 1m이상)",price:5000},
+  {item:"어항(수족관)",spec:"영업용, 2m이상",name:"어항(수족관) (영업용, 2m이상)",price:15000},
+  {item:"에어컨",spec:"264㎡ 이상",name:"에어컨 (264㎡ 이상)",price:9000},
+  {item:"에어컨",spec:"66㎡ 미만",name:"에어컨 (66㎡ 미만)",price:4000},
+  {item:"에어컨",spec:"66㎡ 이상",name:"에어컨 (66㎡ 이상)",price:6000},
+  {item:"에어컨실외기",spec:"1m 미만",name:"에어컨실외기 (1m 미만)",price:0},
+  {item:"에어컨실외기",spec:"1m 이상",name:"에어컨실외기 (1m 이상)",price:2000},
+  {item:"영업용프린터",spec:"높이 1m 미만",name:"영업용프린터 (높이 1m 미만)",price:3000},
+  {item:"영업용프린터",spec:"높이 1m 이상",name:"영업용프린터 (높이 1m 이상)",price:5000},
+  {item:"오디오본체",spec:"본체 1m 미만",name:"오디오본체 (본체 1m 미만)",price:0},
+  {item:"오디오본체",spec:"본체 1m 이상",name:"오디오본체 (본체 1m 이상)",price:4000},
+  {item:"오디오스피커",spec:"스피커 1m 미만",name:"오디오스피커 (스피커 1m 미만)",price:0},
+  {item:"오디오스피커",spec:"스피커 1m 이상",name:"오디오스피커 (스피커 1m 이상)",price:1000},
+  {item:"온수기",spec:"",name:"온수기",price:2000},
+  {item:"온풍기",spec:"264㎡ 이상",name:"온풍기 (264㎡ 이상)",price:8000},
+  {item:"온풍기",spec:"66㎡ 미만",name:"온풍기 (66㎡ 미만)",price:3000},
+  {item:"온풍기",spec:"66㎡ 이상",name:"온풍기 (66㎡ 이상)",price:5000},
+  {item:"올갠",spec:"일반용",name:"올갠 (일반용)",price:10000},
+  {item:"올갠",spec:"전자식",name:"올갠 (전자식)",price:5000},
+  {item:"욕조",spec:"유 아 용",name:"욕조 (유 아 용)",price:3000},
+  {item:"욕조",spec:"일 반 용",name:"욕조 (일 반 용)",price:5000},
+  {item:"우산",spec:"어린이용",name:"우산 (어린이용)",price:0},
+  {item:"우산",spec:"일반용",name:"우산 (일반용)",price:1000},
+  {item:"유리",spec:"0.5㎡ 당",name:"유리 (0.5㎡ 당)",price:1000},
+  {item:"유모차",spec:"1인용",name:"유모차 (1인용)",price:2000},
+  {item:"유모차",spec:"2인용",name:"유모차 (2인용)",price:4000},
+  {item:"의자",spec:"1인용",name:"의자 (1인용)",price:2000},
+  {item:"의자",spec:"장의자",name:"의자 (장의자)",price:6000},
+  {item:"의자",spec:"회전의자",name:"의자 (회전의자)",price:5000},
+  {item:"이불",spec:"겨울용",name:"이불 (겨울용)",price:2000},
+  {item:"인형",spec:"",name:"인형",price:1000},
+  {item:"자동판매기",spec:"음료 담배",name:"자동판매기 (음료 담배)",price:15000},
+  {item:"자동판매기",spec:"자가 소형",name:"자동판매기 (자가 소형)",price:3000},
+  {item:"자전거",spec:"성인용",name:"자전거 (성인용)",price:3000},
+  {item:"자전거",spec:"아동용 2륜",name:"자전거 (아동용 2륜)",price:2000},
+  {item:"자전거",spec:"아동용 3륜",name:"자전거 (아동용 3륜)",price:2000},
+  {item:"장난감",spec:"길이 50cm미만",name:"장난감 (길이 50cm미만)",price:1000},
+  {item:"장난감",spec:"길이 50cm이상",name:"장난감 (길이 50cm이상)",price:2000},
+  {item:"장롱",spec:"너비 100cm 미만(쪽당)",name:"장롱 (너비 100cm 미만(쪽당))",price:10000},
+  {item:"장롱",spec:"너비 100cm 이상(쪽당)",name:"장롱 (너비 100cm 이상(쪽당))",price:15000},
+  {item:"장식장",spec:"높이 120cm미만",name:"장식장 (높이 120cm미만)",price:4000},
+  {item:"장식장",spec:"높이 120cm이상",name:"장식장 (높이 120cm이상)",price:6000},
+  {item:"장식장",spec:"높이 180cm이상",name:"장식장 (높이 180cm이상)",price:10000},
+  {item:"장식장",spec:"오디오용",name:"장식장 (오디오용)",price:3000},
+  {item:"장판",spec:"3.3㎡당",name:"장판 (3.3㎡당)",price:2000},
+  {item:"장판",spec:"옥 자석 온수 등 1인용",name:"장판 (옥 자석 온수 등 1인용)",price:4000},
+  {item:"장판",spec:"옥 자석 온수 등 2인용",name:"장판 (옥 자석 온수 등 2인용)",price:7000},
+  {item:"장판",spec:"전기장판(1인용)",name:"장판 (전기장판(1인용))",price:2000},
+  {item:"장판",spec:"전기장판(2인용)",name:"장판 (전기장판(2인용))",price:3000},
+  {item:"재봉틀",spec:"(재봉틀대)",name:"재봉틀 ((재봉틀대))",price:2000},
+  {item:"전기담요",spec:"1인용",name:"전기담요 (1인용)",price:1000},
+  {item:"전기담요",spec:"2인용",name:"전기담요 (2인용)",price:2000},
+  {item:"전기밥솥",spec:"(보온밥솥)",name:"전기밥솥 ((보온밥솥))",price:0},
+  {item:"전기판넬",spec:"3.3㎡당",name:"전기판넬 (3.3㎡당)",price:2000},
+  {item:"전기히터",spec:"",name:"전기히터",price:0},
+  {item:"전자레인지",spec:"",name:"전자레인지",price:0},
+  {item:"전자시계",spec:"",name:"전자시계",price:0},
+  {item:"전화기․휴대폰",spec:"",name:"전화기․휴대폰",price:0},
+  {item:"정수기",spec:"높이 1m 미만",name:"정수기 (높이 1m 미만)",price:0},
+  {item:"정수기",spec:"높이 1m 이상",name:"정수기 (높이 1m 이상)",price:4000},
+  {item:"조명기구",spec:"샹드레아",name:"조명기구 (샹드레아)",price:2000},
+  {item:"조명기구",spec:"폭, 높이 1m미만",name:"조명기구 (폭, 높이 1m미만)",price:1000},
+  {item:"조명기구",spec:"폭, 높이 1m이상",name:"조명기구 (폭, 높이 1m이상)",price:2000},
+  {item:"진열대(목재)",spec:"1㎡ 당",name:"진열대(목재) (1㎡ 당)",price:5000},
+  {item:"창문",spec:"",name:"창문",price:2000},
+  {item:"책상",spec:"서랍 없음",name:"책상 (서랍 없음)",price:3000},
+  {item:"책상",spec:"양수",name:"책상 (양수)",price:8000},
+  {item:"책상",spec:"컴퓨터 책상",name:"책상 (컴퓨터 책상)",price:3000},
+  {item:"책상",spec:"편수",name:"책상 (편수)",price:5000},
+  {item:"책장",spec:"4단 이하",name:"책장 (4단 이하)",price:2000},
+  {item:"책장",spec:"90cm×180cm 미만",name:"책장 (90cm×180cm 미만)",price:5000},
+  {item:"책장",spec:"90cm×180cm 이상",name:"책장 (90cm×180cm 이상)",price:8000},
+  {item:"천막",spec:"길이 6m 미만",name:"천막 (길이 6m 미만)",price:5000},
+  {item:"천막",spec:"길이 6m 이상",name:"천막 (길이 6m 이상)",price:7000},
+  {item:"청소기",spec:"가정용",name:"청소기 (가정용)",price:0},
+  {item:"청소기",spec:"영업용",name:"청소기 (영업용)",price:4000},
+  {item:"침대(돌,옥,황토침대)",spec:"1인용 돌, 옥, 황토",name:"침대(돌,옥,황토침대) (1인용 돌, 옥, 황토)",price:20000},
+  {item:"침대(돌,옥,황토침대)",spec:"2인용 돌, 옥, 황토",name:"침대(돌,옥,황토침대) (2인용 돌, 옥, 황토)",price:30000},
+  {item:"침대(목재)",spec:"1인용 매트리스",name:"침대(목재) (1인용 매트리스)",price:5000},
+  {item:"침대(목재)",spec:"1인용 침대 틀",name:"침대(목재) (1인용 침대 틀)",price:5000},
+  {item:"침대(목재)",spec:"2인용 매트리스",name:"침대(목재) (2인용 매트리스)",price:8000},
+  {item:"침대(목재)",spec:"2인용 침대 틀",name:"침대(목재) (2인용 침대 틀)",price:7000},
+  {item:"침대(목재)",spec:"어린이 2층",name:"침대(목재) (어린이 2층)",price:15000},
+  {item:"침대(목재)",spec:"유아용",name:"침대(목재) (유아용)",price:3000},
+  {item:"카세트라디오",spec:"",name:"카세트라디오",price:0},
+  {item:"카시트",spec:"",name:"카시트",price:2000},
+  {item:"카페트",spec:"3.3㎡당",name:"카페트 (3.3㎡당)",price:2000},
+  {item:"캐비넷(파일)",spec:"3단 이하",name:"캐비넷(파일) (3단 이하)",price:2000},
+  {item:"캐비넷(파일)",spec:"4단 이상",name:"캐비넷(파일) (4단 이상)",price:3000},
+  {item:"캐비넷(파일)",spec:"90cm×180cm",name:"캐비넷(파일) (90cm×180cm)",price:4000},
+  {item:"커튼",spec:"2m 미만",name:"커튼 (2m 미만)",price:1000},
+  {item:"커튼",spec:"2m 이상",name:"커튼 (2m 이상)",price:2000},
+  {item:"커튼봉",spec:"",name:"커튼봉",price:1000},
+  {item:"커피포트",spec:"",name:"커피포트",price:0},
+  {item:"컬러박스(공간박스)",spec:"2단 미만",name:"컬러박스(공간박스) (2단 미만)",price:1000},
+  {item:"컬러박스(공간박스)",spec:"3단 이상",name:"컬러박스(공간박스) (3단 이상)",price:2000},
+  {item:"컴퓨터",spec:"",name:"컴퓨터",price:0},
+  {item:"컴퓨터복합기",spec:"",name:"컴퓨터복합기",price:0},
+  {item:"컴퓨터오락기",spec:"",name:"컴퓨터오락기",price:0},
+  {item:"컴퓨터키보드",spec:"",name:"컴퓨터키보드",price:0},
+  {item:"킥보드",spec:"",name:"킥보드",price:2000},
+  {item:"타이어",spec:"지름 110cm이상",name:"타이어 (지름 110cm이상)",price:6000},
+  {item:"타이어",spec:"지름 60cm 미만",name:"타이어 (지름 60cm 미만)",price:3000},
+  {item:"타이어",spec:"지름 60cm 이상",name:"타이어 (지름 60cm 이상)",price:5000},
+  {item:"탁구대",spec:"",name:"탁구대",price:7000},
+  {item:"탁자",spec:"10인용 미만",name:"탁자 (10인용 미만)",price:6000},
+  {item:"탁자",spec:"10인용 이상",name:"탁자 (10인용 이상)",price:8000},
+  {item:"탁자",spec:"2인용",name:"탁자 (2인용)",price:3000},
+  {item:"탁자",spec:"응접용",name:"탁자 (응접용)",price:3000},
+  {item:"탁자",spec:"협 탁",name:"탁자 (협 탁)",price:2000},
+  {item:"탈수기",spec:"가정용",name:"탈수기 (가정용)",price:0},
+  {item:"텐트",spec:"4인용 미만",name:"텐트 (4인용 미만)",price:3000},
+  {item:"텐트",spec:"4인용 이상",name:"텐트 (4인용 이상)",price:4000},
+  {item:"토스터기",spec:"",name:"토스터기",price:0},
+  {item:"파티션",spec:"1㎡당",name:"파티션 (1㎡당)",price:2000},
+  {item:"팩시밀리",spec:"가정용",name:"팩시밀리 (가정용)",price:0},
+  {item:"팩시밀리",spec:"사무용",name:"팩시밀리 (사무용)",price:2500},
+  {item:"팬히터",spec:"벽걸이형",name:"팬히터 (벽걸이형)",price:2000},
+  {item:"프린터",spec:"가정용",name:"프린터 (가정용)",price:0},
+  {item:"피아노",spec:"디지털",name:"피아노 (디지털)",price:5000},
+  {item:"피아노",spec:"일반",name:"피아노 (일반)",price:16000},
+  {item:"항아리",spec:"높이 50cm 미만",name:"항아리 (높이 50cm 미만)",price:3000},
+  {item:"항아리",spec:"높이 50cm 이상",name:"항아리 (높이 50cm 이상)",price:5000},
+  {item:"행거",spec:"1단 행거",name:"행거 (1단 행거)",price:2000},
+  {item:"행거",spec:"2단 행거",name:"행거 (2단 행거)",price:3000},
+  {item:"헤어드라이어",spec:"",name:"헤어드라이어",price:0},
+  {item:"헬스기구",spec:"런닝머신",name:"헬스기구 (런닝머신)",price:15000},
+  {item:"헬스기구",spec:"스텝퍼",name:"헬스기구 (스텝퍼)",price:4000},
+  {item:"헬스기구",spec:"헬스자전거",name:"헬스기구 (헬스자전거)",price:7000},
+  {item:"화분",spec:"지름 50cm 미만",name:"화분 (지름 50cm 미만)",price:1000},
+  {item:"화분",spec:"지름 50cm 이상",name:"화분 (지름 50cm 이상)",price:2000},
+  {item:"화장대(경대)",spec:"가정용",name:"화장대(경대) (가정용)",price:3000},
+  {item:"화환",spec:"",name:"화환",price:3000},
+  {item:"환풍기",spec:"가정용",name:"환풍기 (가정용)",price:0},
+  {item:"환풍기",spec:"업소용(대형)",name:"환풍기 (업소용(대형))",price:3000},
+  {item:"휠체어",spec:"",name:"휠체어",price:3000},
+  {item:"휴대폰충전기",spec:"",name:"휴대폰충전기",price:0}
+];
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let receipts = {};
+let wongjangData = {};
+let jiseoData  = {};
+let refunds  = {};
+let ppegKeys = {};
+let selectedIds = new Set();
+let selectedRefundIds = new Set();
+let refundTarget = null;
+let refundFilter = 'all';
+let itemCount = 0;
+
+// ── 초기화 ──
+window.addEventListener('DOMContentLoaded', () => {
+  render접수자Select();   // 접수자 셀렉트 초기화
+  const today = new Date().toISOString().slice(0,10);
+  const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().slice(0,10);
+  document.getElementById('f-date').value  = today;
+  document.getElementById('f-emit').value  = tomorrow;
+  document.getElementById('jiseo-date').value = today;
+  addItemRow();
+  calcPickupDate();
+
+  db.ref('.info/connected').on('value', snap => {
+    const on = snap.val();
+    document.getElementById('conn-dot').className = 'conn-dot ' + (on?'online':'offline');
+    document.getElementById('conn-text').textContent = on ? '실시간 연결됨' : '연결 끊김';
+  });
+
+  db.ref(DB_RECEIPT).on('value', snap => {
+    receipts = snap.val() || {};
+    renderTable();
+    renderStats();
+  });
+  db.ref(DB_WONGJANG).on('value', snap => {
+    wongjangData = snap.val() || {};
+  });
+  db.ref(DB_JISEO).on('value', snap => {
+    jiseoData = snap.val() || {};
+  });
+  db.ref(DB_REFUND).on('value', snap => {
+    refunds = snap.val() || {};
+    renderRefundTable();
+  });
+  db.ref(DB_PPEGI).on('value', snap => { ppegKeys = snap.val() || {}; });
+  db.ref(DB_HOLIDAYS).on('value', snap => {
+    customHolidays = snap.val() || {};
+    renderHolidayGrid();
+  });
+});
+
+// ══ 접수자 목록 관리 (localStorage) ══
+const 접수자기본 = ['심','권','김','이'];
+function get접수자목록() {
+  try { return JSON.parse(localStorage.getItem('접수자목록')) || 접수자기본; }
+  catch { return 접수자기본; }
+}
+function render접수자Select() {
+  const sel = document.getElementById('f-접수자');
+  if (!sel) return;
+  const list = get접수자목록();
+  sel.innerHTML = list.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+function open접수자설정() {
+  document.getElementById('접수자-input').value = get접수자목록().join('\n');
+  document.getElementById('접수자-modal').style.display = 'flex';
+}
+function save접수자설정() {
+  const names = document.getElementById('접수자-input').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  const list = names.length ? names : 접수자기본;
+  localStorage.setItem('접수자목록', JSON.stringify(list));
+  render접수자Select();
+  document.getElementById('접수자-modal').style.display = 'none';
+  showToast('✅ 접수자 목록 저장됨');
+}
+
+// ══ 탭 전환 ══
+function showTab(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('tab-'+name).classList.add('on');
+  el.classList.add('on');
+}
+
+// ══ 수거일 계산 ══
+function is5Danji(dong) { return dong === '5단지'; }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+
+function nextWorkday(d, is5) {
+  let cur = new Date(d);
+  for (let i = 0; i < 20; i++) {
+    const dow = cur.getDay();
+    const ds  = cur.toISOString().slice(0,10);
+    if (HOLIDAYS.includes(ds) || dow === 0 || (is5 && dow === 6)) {
+      cur = addDays(cur,1); continue;
+    }
+    return cur;
+  }
+  return cur;
+}
+
+function calcPickupDate() {
+  const dong     = document.getElementById('f-dong').value;
+  const estimate = document.getElementById('f-estimate').value;
+  const now      = new Date();
+  const hour     = now.getHours();
+  const minute   = now.getMinutes();
+  const totalMin = hour * 60 + minute;
+  const is5      = is5Danji(dong);
+
+  // 저장시각 기준 시간대 자동판별
+  let timeSlot;
+  if (totalMin < 14 * 60)       timeSlot = 'before14';
+  else if (totalMin < 16 * 60)  timeSlot = '14to16';
+  else                           timeSlot = 'after16';
+
+  const emit = now;  // 접수시각 기준
+  const emitStr = now.toISOString().slice(0,10);
+
+  const dow  = emit.getDay();
+  let pickup;
+
+  if (dow === 0) {
+    pickup = nextWorkday(addDays(emit,1), is5);
+  } else if (dow === 6) {
+    pickup = nextWorkday(addDays(emit,2), is5);
+  } else if (dow === 5) { // 금요일
+    if (timeSlot === 'before14') {
+      pickup = is5 ? nextWorkday(addDays(emit,3), is5) : nextWorkday(addDays(emit,1), is5);
+    } else if (timeSlot === '14to16') {
+      pickup = nextWorkday(addDays(emit,3), is5);
+    } else {
+      pickup = nextWorkday(addDays(emit,4), is5);
+    }
+  } else { // 월~목
+    if (timeSlot === 'before14') {
+      pickup = nextWorkday(addDays(emit,1), is5);
+    } else {
+      pickup = nextWorkday(addDays(emit,2), is5);
+    }
+  }
+
+  const result = pickup.toISOString().slice(0,10);
+  const days = ['일','월','화','수','목','금','토'];
+  document.getElementById('auto-date-box').style.display = '';
+  document.getElementById('auto-date-val').textContent = `${result} (${days[pickup.getDay()]})`;
+  document.getElementById('auto-date-box').dataset.date = result;
+}
+
+// ══ 품목 행 ══
+function addItemRow() {
+  // 품목 제한 없음
+  calcPickupDate();
+  itemCount++;
+  const id = 'ir-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'item-row'; div.id = id;
+  div.innerHTML = `
+    <div class="item-ac-wrap">
+      <input type="text" class="item-ac-input item-name"
+        placeholder="품목명 입력 또는 직접 타이핑"
+        autocomplete="off"
+        oninput="showAcList(this)"
+        onkeydown="acKeydown(event,this)"
+        onfocus="showAcList(this)"
+        onblur="setTimeout(()=>hideAcList(this),200)">
+      <div class="item-ac-list"></div>
+    </div>
+    <input type="number" class="form-input item-cnt" placeholder="갯수" min="1"
+      style="text-align:center;" oninput="calcItemPrice(this)">
+    <input type="number" class="form-input item-amt" placeholder="금액" min="0"
+      style="text-align:right;" oninput="updateTotal()">
+    <button class="item-del"
+      onclick="document.getElementById('${id}').remove();itemCount--;updateTotal()">✕</button>`;
+  document.getElementById('item-rows').appendChild(div);
+}
+
+function showAcList(inp) {
+  const q      = inp.value.trim().toLowerCase();
+  const list   = inp.closest('.item-ac-wrap').querySelector('.item-ac-list');
+  const filtered = q
+    ? PRICE_LIST.filter(p => p.name.toLowerCase().includes(q))
+    : PRICE_LIST.slice(0, 20);  // 빈 칸이면 상위 20개만 표시
+  if (!filtered.length) { list.classList.remove('open'); return; }
+  const re = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi') : null;
+  list.innerHTML = filtered.map(p => {
+    const itemHl = re ? p.item.replace(re, m => `<mark>${m}</mark>`) : p.item;
+    const specHl = p.spec ? (re ? p.spec.replace(re, m => `<mark>${m}</mark>`) : p.spec) : '';
+    return `<div class="item-ac-item" onmousedown="selectAcItem(this,'${p.name.replace(/'/g,"\'")}',${p.price})">
+      <span class="ac-item-main">
+        <span class="ac-item-name">${itemHl}</span>${specHl ? `<span class="ac-item-spec">${specHl}</span>` : ''}
+      </span>
+      <span class="ac-price">${p.price ? p.price.toLocaleString()+'원' : '면제'}</span>
+    </div>`;
+  }).join('');
+  list.classList.add('open');
+}
+
+function hideAcList(inp) {
+  const wrap = inp.closest('.item-ac-wrap');
+  if (wrap) wrap.querySelector('.item-ac-list').classList.remove('open');
+}
+
+function selectAcItem(el, name, price) {
+  const wrap = el.closest('.item-ac-wrap');
+  wrap.querySelector('.item-ac-input').value = name;
+  wrap.querySelector('.item-ac-list').classList.remove('open');
+  const row = wrap.closest('.item-row');
+  const amtInput = row.querySelector('.item-amt');
+  const cntInput = row.querySelector('.item-cnt');
+  const cnt = parseInt(cntInput?.value) || 1;
+  amtInput.value = price * cnt;
+  updateTotal();
+}
+
+// 갯수 입력 시 단가×갯수 자동계산 (접수입력 탭)
+function calcItemPrice(cntInp) {
+  const row      = cntInp.closest('.item-row');
+  const nameInp  = row.querySelector('.item-name');
+  const amtInp   = row.querySelector('.item-amt');
+  const cnt      = parseInt(cntInp.value) || 1;
+  const name     = (nameInp?.value || '').trim();
+  const found    = PRICE_LIST.find(p => p.name === name || p.item === name);
+  if (found && found.price != null) {
+    amtInp.value = found.price * cnt;
+    updateTotal();
+  }
+}
+
+function acKeydown(e, inp) {
+  const list  = inp.closest('.item-ac-wrap').querySelector('.item-ac-list');
+  const items = [...list.querySelectorAll('.item-ac-item')];
+  let cur     = items.findIndex(el => el.classList.contains('active'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (cur >= 0) items[cur].classList.remove('active');
+    cur = Math.min(cur + 1, items.length - 1);
+    items[cur]?.classList.add('active');
+    items[cur]?.scrollIntoView({block:'nearest'});
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (cur >= 0) items[cur].classList.remove('active');
+    cur = Math.max(cur - 1, 0);
+    items[cur]?.classList.add('active');
+    items[cur]?.scrollIntoView({block:'nearest'});
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = list.querySelector('.item-ac-item.active');
+    if (active) active.dispatchEvent(new MouseEvent('mousedown'));
+    else list.classList.remove('open');
+  } else if (e.key === 'Escape') {
+    hideAcList(inp);
+  }
+}
+
+function onItemChange() {} // 호환성 유지
+
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('.item-amt').forEach(inp => { total += parseInt(inp.value||0); });
+  document.getElementById('f-total').value = total ? total.toLocaleString()+'원' : '';
+}
+
+// ══ 수기 저장 ══
+function saveManual() {
+  calcPickupDate();
+  const pickup = document.getElementById('auto-date-box').dataset.date || '';
+  document.getElementById('f-emit').value = pickup;
+  const name = document.getElementById('f-name').value.trim();
+  const addr = document.getElementById('f-addr').value.trim();
+  if (!name||!addr) { showToast('⚠️ 성명과 주소는 필수입니다'); return; }
+  const items = [];
+  document.querySelectorAll('.item-row').forEach(row => {
+    const nameInp = row.querySelector('.item-name');
+    const cnt     = row.querySelector('.item-cnt');
+    const amt     = row.querySelector('.item-amt');
+    const pname   = nameInp ? nameInp.value.trim() : '';
+    const pcnt    = cnt ? (cnt.value.trim() || '') : '';
+    if (pname) items.push({품목:pname, 개수:pcnt, 금액:parseInt(amt.value||0).toLocaleString()+'원'});
+  });
+
+  const total  = document.getElementById('f-total').value;
+  const row = {
+    _source:  document.getElementById('f-source').value,
+    _dong:    document.getElementById('f-dong').value,
+    접수일자: document.getElementById('f-date').value,
+    접수자:   document.getElementById('f-접수자').value,
+    성명: name, 주소: addr,
+    전화번호: document.getElementById('f-phone').value.trim(),
+    수거일자: pickup, 총금액: total,
+    입금일자: '',
+    비고:     document.getElementById('f-note').value.trim(),
+    품목1: items[0]?.품목||'', 금액1: items[0]?.금액||'',
+    품목2: items[1]?.품목||'', 금액2: items[1]?.금액||'',
+    품목3: items[2]?.품목||'', 금액3: items[2]?.금액||'',
+    _items: items, _created: Date.now(),
+  };
+
+  showLoading('저장 중…');
+  db.ref(`${DB_RECEIPT}/${Date.now()}`).set(row)
+    .then(() => { hideLoading(); showToast('✅ 접수 저장 완료'); resetForm(); })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+function resetForm() {
+  ['f-name','f-addr','f-phone','f-note','f-total'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('item-rows').innerHTML=''; itemCount=0; addItemRow();
+  document.getElementById('auto-date-box').style.display='none';
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('f-date').value = today;
+  document.getElementById('f-emit').value = today;
+}
+// ══ 파일 업로드 ══
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById('uz-'+type).classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+function handleFile(inp, type) {
+  if (inp.files[0]) processFile(inp.files[0], type);
+  inp.value='';
+}
+function processFile(file, type) {
+  const uploadTime = new Date();   // ← 업로드 버튼 누른 시각 즉시 캡처
+  showLoading(`[${type}] 파일 읽는 중…`);
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb   = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+      if (type==='gu')         await parseGu(rows, uploadTime);
+      else if (type==='ppegi') parsePpegi(rows);
+      else if (type==='bank')  parseBank(rows);
+    } catch(err) { hideLoading(); showToast('❌ 파일 오류: '+err.message); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ── 구청 파싱 ──
+
+/* ─── 헬퍼 ─────────────────────────────── */
+
+// 접수번호 끝 숫자 추출 (⑤ 정렬용)
+function seqNum(s) {
+  const m = String(s||'').match(/(\d+)$/);
+  return m ? parseInt(m[1]) : 0;
+}
+
+// 원문자 ①~⑩
+const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+
+// ② 처리기준일 기반 수거일 (업로드 버튼 누른 시각 기준)
+function calcBasePickup(is5, now) {
+  now = now || new Date();   // fallback: 미전달 시 현재 시각
+  const dow = now.getDay();
+  const hh  = now.getHours();
+  let offset;
+  if      (dow === 0) offset = 1;            // 일 → +1
+  else if (dow === 6) offset = 2;            // 토 → +2
+  else if (dow === 5) {                      // 금 3단계
+    if      (hh < 14) offset = 1;           // ~14:00 → 토(5단지 자동→월)
+    else if (hh < 16) offset = 3;           // 14~16시 → 월
+    else              offset = 4;           // 16시~   → 화
+  } else {                                   // 월~목
+    offset = hh >= 14 ? 2 : 1;
+  }
+  return nextWorkday(addDays(now, offset), is5).toISOString().slice(0,10);
+}
+
+// ⑥ 아파트 주소 파싱 → { isApt, _dong, aptAddr }
+// ※ rawAddr = 배출주소 탭 이후 실제주소 (beforeTab 제거 후)
+function parseAptAddress(rawAddr) {
+  const a = rawAddr || '';
+
+  // 명시 아파트명 (롯데 제외 체크 삭제: 탭앞 행정구역 이름이라 무관)
+  if (/주공|5단지|올림픽\s*선수|527동|521동|523동/.test(a)) return _aptBuild('5단지', a);
+  if (/레이크팰리스|레이크\s*팰리스|레이크팰이스|레이크\s*팰이스/.test(a))
+                                                             return _aptBuild('레이크팰리스', a);
+  if (/우성\s*4차/.test(a))                                  return _aptBuild('우성4차', a);
+  if (/트리지움/.test(a))                                    return _aptBuild('트리지움', a);
+  if (/잠실\s*현대/.test(a))                                 return _aptBuild('잠실본동', a);
+  if (/삼전\s*현대/.test(a))                                 return _aptBuild('삼전동', a);
+
+  // 이름 없이 동번호만 (XXX동 YYY호)
+  const dm = a.match(/(\d{3})\s*동\s*(\d+)\s*호/);
+  if (dm) {
+    const d = parseInt(dm[1]), ho = dm[2];
+    if (d >= 500 && d < 600)   return { isApt:true, _dong:'5단지',        aptAddr:`${dm[1]}-${ho}` };
+    if (d >= 109 && d <= 135)  return { isApt:true, _dong:'레이크팰리스', aptAddr:`${dm[1]}-${ho}` };
+    if (d >= 101 && d <= 108)  return { isApt:true, _dong:'5단지',        aptAddr:`?${dm[1]}-${ho}` }; // 겹침
+  }
+  return { isApt: false };
+}
+function _aptBuild(_dong, a) {
+  const m = a.match(/(\d+)\s*동\s*(\d+)\s*호/);
+  return { isApt:true, _dong, aptAddr: m ? `${m[1]}-${m[2]}` : a };
+}
+
+/* ─── 품목 파싱 ─────────────────────────── */
+
+// 단일 품목 파싱 (parsePpegi 용)
+function parseItem(itemStr) {
+  if (!itemStr) return {name:'', count:'', price:0};
+  let name = itemStr, count = '', price = 0;
+  const pm = itemStr.match(/(\d+)원/);        if (pm) price = parseInt(pm[1]);
+  const cm = itemStr.match(/(\d+)개/);        if (cm) count = cm[0];
+  const nm = itemStr.match(/^([^(]+?)(?:\s*\(|\s+\d|$)/); if (nm) name = nm[1].trim();
+  return { name, count, price };
+}
+
+// 구청 다중 품목 파싱 ⑦
+// 실제 XLS 형식: "품목명(세부)   (규격)  N개      (금액원)\n다음품목..."
+// fallback: '<' 구분자 형식
+function parseGuItems(rawStr) {
+  if (!rawStr) return [];
+  const items = [];
+
+  // \n 기준 분리 (실제 구청 XLS 포맷) — fallback: '<' 구분자
+  const segs = rawStr.includes('\n')
+    ? rawStr.split('\n')
+    : rawStr.split(/\s*<\s*/);
+
+  for (let seg of segs) {
+    seg = seg.trim();
+    if (!seg) continue;
+
+    // 금액: 마지막 (N원) 또는 (N,NNN원)
+    const pm = seg.match(/\(([0-9,]+)원\)\s*$/) || seg.match(/([0-9,]+)원\s*$/);
+    const price = pm ? parseInt(pm[1].replace(/,/g,'')) : 0;
+
+    // 개수: N개
+    const cm  = seg.match(/(\d+)개/);
+    const cnt = cm ? parseInt(cm[1]) : 1;
+
+    // 품목명: 2개 이상 공백 + '(' 직전까지 (구청 XLS 포맷 핵심)
+    // 예) "침대(목재)   (1인용 매트리스...)  1개   (5000원)" → "침대(목재)"
+    const sp = seg.match(/^(.+?)\s{2,}\(/);
+    let name = sp
+      ? sp[1].trim()
+      : (seg.match(/^([^(]+?)(?:\s*\(|\s+\d+개|$)/)?.[1] || seg.split('(')[0]).trim();
+    name = name.replace(/\?/g,'·').trim();
+
+    // 수량 ≥ 2 → 원문자 첨부 (금액은 소스값 그대로)
+    if (cnt >= 2 && cnt <= 10) name += CIRCLED_NUMS[cnt - 1];
+
+    if (name) {
+      items.push({
+        품목: name,
+        금액: price === 0 ? '무상' : price.toLocaleString() + '원',
+        개수: cm ? cm[0] : '',
+        _price: price,
+      });
+    }
+  }
+  return items;
+}
+
+/* ─── null 처리 ──────────────────────────── */
+function sanitize(val) {
+  if (!val || val === 'null' || val === 'undefined') return '';
+  return String(val).trim();
+}
+
+/* ─── 지번 주소 파싱 ─────────────────────── */
+// fallbackDong: 배출주소 탭 앞 행정구역에서 추출한 동 이름
+function parseAddress(addr, fallbackDong) {
+  if (!addr || addr === 'null') addr = '';
+
+  // 괄호 앞 1차 주소 (도로명 판별용 — 괄호 안 도로명 오탐 방지)
+  const primary = addr.split(/[\(（]/)[0].trim();
+
+  // 지번 우선 추출: 번지 명시 > XX-YY 패턴 > 1차주소 단순 숫자
+  const jmA = addr.match(/(\d+)-(\d+)\s*번지/) || addr.match(/(\d+)\s*번지/);
+  const jmB = !jmA && (addr.match(/(\d+)-(\d+)/) || primary.match(/(\d+)/));
+  let jibun = '', jNum = NaN;
+  const jm  = jmA || jmB;
+  if (jm) {
+    jibun = jm[1]; if (jm[2]) jibun += '-' + jm[2];
+    jNum  = parseInt(jm[1]);
+  }
+
+  // 1차주소가 도로명(로/길+숫자)이면 번지 아님
+  let isRoadAddr = false;
+  if (/[로길]\s*\d/.test(primary)) {
+    // ⑦ 괄호 안 X-Y 지번 패턴 추출 시도 (예: "잠실로 17 (잠실동 225-1)")
+    const pm = addr.match(/[（(][^)）]*?(\d{1,4}-\d{1,4})[^)）]*[)）]/);
+    if (pm) { jibun = pm[1]; jNum = parseInt(jibun); }
+    else    { jibun = '?'; jNum = NaN; isRoadAddr = true; }
+  }
+  // 층수(1층 등) → 번지 아님
+  else if (/^\d+층/.test(primary))  { jibun = '?'; jNum = NaN; }
+  if (!jibun) jibun = '?';
+
+  // 동 판별: '삼전동' 명시 우선 (삼전로 오탐 방지)
+  let dong = fallbackDong || '잠실본동', prefix = '?';
+  if      (addr.includes('삼전동'))                            { dong='삼전동';  prefix='삼'; }
+  else if (addr.includes('잠실본') || addr.includes('잠실동')) { dong='잠실본동'; prefix='본'; }
+  else if (!isNaN(jNum)) {
+    if      (jNum >= 1   && jNum <= 174 && fallbackDong !== '잠실본동') { dong='삼전동';  prefix='삼'; }
+    else if (jNum >= 1   && jNum <= 174)                                { dong='잠실본동'; prefix='본'; }
+    else if (jNum >= 175 && jNum <= 183) { dong='잠실본동'; prefix='?';  } // 겹침
+    else if (jNum >= 184 && jNum <= 345) { dong='잠실본동'; prefix='본'; }
+    else if (fallbackDong === '삼전동')  { dong='삼전동';  prefix='삼'; }
+    else                                 { dong='잠실본동'; prefix='본'; }
+  } else if (fallbackDong === '삼전동')  { dong='삼전동';  prefix='삼'; }
+    else if (fallbackDong === '잠실본동') { dong='잠실본동'; prefix='본'; }
+  return { dong, jibun, formatted: prefix + ' ' + jibun, isRoadAddr };
+}
+
+/* ─── parseGu 메인 ───────────────────────── */
+async function parseGu(rows, uploadTime) {
+  // 고정 컬럼 인덱스
+  // 접수번호/성명/신청일/배출일/수거일(무시)/연락처/배출주소/상세위치/수거품목/결제여부
+  const seqCol    = 0;
+  const nameCol   = 1;
+  const dateCol   = 2;  // 신청일(결제일)
+  const emitCol   = 3;  // 배출일
+  const phoneCol  = 5;
+  const addrCol   = 6;
+  const detailCol = 7;  // 배출장소상세위치 → 비고
+  const itemCol   = 8;
+  const paidCol   = 9;
+
+  // 처리기준일 = 업로드 버튼 누른 시각
+  const today    = uploadTime || new Date();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // ② 기준 수거일 — 업로드 버튼 누른 시각(uploadTime) 기준
+  const basePickupRegular = calcBasePickup(false, uploadTime);
+  const basePickup5       = calcBasePickup(true,  uploadTime);
+
+  // 헤더 행 탐지 후 데이터 행만 추출
+  const hi = rows.findIndex(r => r.some(v => String(v).includes('성명') || String(v).includes('신청인')));
+  const dataRows = rows.slice((hi >= 0 ? hi : 0) + 1)
+                       .filter(r => String(r[nameCol]||'').trim());
+
+  // ⑤ 접수번호 오름차순 정렬 (소스는 보통 내림차순)
+  dataRows.sort((a, b) => seqNum(a[seqCol]) - seqNum(b[seqCol]));
+
+  let skipped = 0;
+  const mergeMap = new Map(); // mergeKey → entry
+
+  for (const r of dataRows) {
+    const name = String(r[nameCol]||'').trim();
+    if (!name) continue;
+
+    // ① 결제완료 건만 (완료(...) 포함, 미결 제외)
+    const paidVal = String(r[paidCol]||'').trim();
+    if (!paidVal.includes('완료') || paidVal.includes('미결')) { skipped++; continue; }
+
+    const rawAddrFull = String(r[addrCol]  ||'').trim();
+    const detail      = String(r[detailCol]||'').trim();
+    const phone       = String(r[phoneCol] ||'').replace(/[^0-9-]/g,'').trim();
+    const rawItem     = String(r[itemCol]  ||'').trim();
+
+    // 신청일/배출일: "2026.06.29" → "2026-06-29" 정규화
+    const aDate = String(r[dateCol]||'').trim().slice(0,10).replace(/\./g,'-');
+    const eDate = String(r[emitCol]||'').trim().slice(0,10).replace(/\./g,'-');
+
+    // ⑥ 주소·동 라우팅
+    // 배출주소 형식: "송파구 잠실본동\t실제주소" — 탭 뒤가 진짜 주소
+    const tabIdx   = rawAddrFull.indexOf('\t');
+    const beforeTab = tabIdx >= 0 ? rawAddrFull.slice(0, tabIdx).trim() : '';
+    const afterTab  = tabIdx >= 0 ? rawAddrFull.slice(tabIdx+1).trim() : rawAddrFull;
+    // beforeTab에서 dong 힌트 추출 (afterTab에 동 명시 없을 때 fallback)
+    const dongHint = beforeTab.includes('삼전') ? '삼전동'
+                   : beforeTab.includes('잠실') ? '잠실본동' : '';
+
+    const aptR = parseAptAddress(afterTab);
+    let _dong, addr, _isRoadAddr = false, _rawRoadAddr = '';
+    if (aptR.isApt) {
+      _dong = aptR._dong;
+      addr  = aptR.aptAddr;
+    } else {
+      const pa = parseAddress(afterTab, dongHint);
+      _dong = pa.dong;
+      if (pa.isRoadAddr) {
+        // ⑦ 도로명주소: ROAD_JIBUN_MAP 조회 먼저 → 없으면 원문 보존 후 카카오 API 대기
+        const roadKey   = afterTab.split(/[\(（]/)[0].trim();
+        const converted = lookupRoadToJibun(roadKey);
+        if (converted) {
+          addr = converted;
+        } else {
+          addr = afterTab;
+          _isRoadAddr   = true;
+          _rawRoadAddr  = roadKey;
+        }
+      } else {
+        addr = pa.formatted;
+      }
+    }
+
+    // ② 수거일 계산
+    const is5 = is5Danji(_dong);
+    let pickup;
+    if (!eDate || eDate <= todayStr) {
+      // 배출일 ≤ 처리기준일 → 기준 수거일 일괄
+      pickup = is5 ? basePickup5 : basePickupRegular;
+    } else {
+      // 배출일 > 처리기준일 → 배출일 +1 영업일
+      pickup = nextWorkday(addDays(new Date(eDate), 1), is5).toISOString().slice(0,10);
+    }
+
+    // 품목 파싱
+    const parsedItems = parseGuItems(rawItem);
+    const itemsTotal  = parsedItems.reduce((s, it) => s + it._price, 0);
+
+    // ③ 병합 키: 성명 + 전화 + 주소 + 수거일 (수거일 같으면 합침, 다르면 별도)
+    const mk = `${name}\x00${phone}\x00${addr}\x00${pickup}`;
+
+    if (mergeMap.has(mk)) {
+      const en = mergeMap.get(mk);
+      parsedItems.forEach(it => en._items.push(it));
+      en._total += itemsTotal;
+      // ④ 병합 시 더 빠른 신청일
+      if (aDate && aDate < en.접수일자) { en.접수일자 = aDate; en.입금일자 = aDate; }
+    } else {
+      // Firebase 중복 체크 (성명+주소+전화+수거일 동일 건 이미 존재하면 스킵)
+      let isDup = false;
+      for (const k in receipts) {
+        const ex = receipts[k];
+        if (ex.성명===name && ex.주소===addr && ex.전화번호===phone && ex.수거일자===pickup) {
+          isDup = true; break;
+        }
+      }
+      if (isDup) continue;
+
+      mergeMap.set(mk, {
+        _dong, _seq: seqNum(r[seqCol]),
+        접수일자: aDate, 성명: name, 주소: addr, 전화번호: phone,
+        수거일자: pickup, 입금일자: aDate,
+        비고: detail ? `${detail}\n(인)` : '(인)',  // ⑨
+        _items: [...parsedItems],
+        _total: itemsTotal,
+        _key: Date.now() + seqNum(r[seqCol]),  // ← 카카오 API 이후 재계산
+        _isRoadAddr, _rawRoadAddr,
+      });
+    }
+  }
+
+  // ── ⑦ 도로명주소 카카오 API 변환 ──
+  const roadEntries = [...mergeMap.values()].filter(m => m._isRoadAddr);
+  if (roadEntries.length) {
+    showLoading(`도로명주소 변환 중… (0/${roadEntries.length}건)`);
+    for (let i = 0; i < roadEntries.length; i++) {
+      const m = roadEntries[i];
+      showLoading(`도로명주소 변환 중… (${i+1}/${roadEntries.length}건)`);
+      const converted = await kakaoAddrToJibun(m._rawRoadAddr || m.주소);
+      if (converted) { m.주소 = converted; m._isRoadAddr = false; }
+    }
+  }
+
+  // ── _key 재계산: uploadTime 고정 base + 접수번호 오름차순 index
+  //    (Date.now() 재호출 편차 제거 → Firebase key = 연번 오름차순 보장)
+  {
+    const sorted = [...mergeMap.values()].sort((a, b) => a._seq - b._seq);
+    const base   = uploadTime.getTime();
+    sorted.forEach((m, i) => { m._key = base + i; });
+  }
+
+  // ⑧ Firebase 저장 객체 생성
+  const saves = {};
+  let added = 0;
+
+  for (const [, m] of mergeMap) {
+    const items   = m._items;
+    const allFree = items.length > 0 && items.every(it => it._price === 0);
+    const totalStr = allFree ? '무상' : (m._total ? m._total.toLocaleString()+'원' : '');
+
+    const record = {
+      _source:'구청', _dong:m._dong,
+      접수자:'김',                      // ⑩
+      접수일자:m.접수일자, 성명:m.성명, 주소:m.주소, 전화번호:m.전화번호,
+      수거일자:m.수거일자,
+      총금액:totalStr, 입금일자:m.입금일자, 비고:m.비고,
+      _items:items, _created:m._key, _seq:m._seq,
+    };
+    items.slice(0,10).forEach((it, idx) => {
+      record[`품목${idx+1}`] = it.품목;
+      record[`금액${idx+1}`] = it.금액;
+      record[`개수${idx+1}`] = it.개수||'';
+    });
+    record.품목1 = items[0]?.품목||'';
+    record.금액1 = items[0]?.금액||'';
+    record.품목2 = items[1]?.품목||'';
+    record.금액2 = items[1]?.금액||'';
+
+    saves[`${DB_RECEIPT}/${m._key}`] = record;
+    added++;
+  }
+
+  if (!added) {
+    hideLoading();
+    const el = document.getElementById('ur-gu');
+    el.style.display=''; el.innerHTML=`ℹ️ 신규 건 없음 / 미결제 ${skipped}건 제외`;
+    showToast('ℹ️ 신규 접수 건 없음');
+    return;
+  }
+
+  db.ref().update(saves)
+    .then(() => {
+      hideLoading();
+      const el = document.getElementById('ur-gu');
+      el.style.display='';
+      el.innerHTML=`✅ 완료 ${added}건 저장 / 미결제 ${skipped}건 제외`;
+      showToast(`✅ 구청 ${added}건 접수 완료`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 빼기 파싱 ──
+function parsePpegi(rows) {
+  const h = rows[0]||[];
+  const wnoCol   = h.findIndex(v => String(v).includes('작업번호')||String(v).includes('예약'));
+  const nameCol  = h.findIndex(v => String(v).includes('신청자')||String(v).includes('성명'));
+  const phoneCol = h.findIndex(v => String(v).includes('휴대폰')||String(v).includes('전화'));
+  const addrCol  = h.findIndex(v => String(v).includes('주소'));
+  const itemCol  = h.findIndex(v => String(v).includes('품목')||String(v).includes('규격'));
+  const amtCol   = h.findIndex(v => String(v).includes('금액')||String(v).includes('스티커'));
+  const dateCol  = h.findIndex(v => String(v).includes('신청일'));
+  const emitCol  = h.findIndex(v => String(v).includes('배출일'));
+  const noteCol  = h.findIndex(v => String(v).includes('배출위치')||String(v).includes('위치'));
+
+  let added=0, dup=0;
+  const saves={}, newKeys={};
+  for (let i=1; i<rows.length; i++) {
+    const r   = rows[i];
+    const wno = String(r[wnoCol]||'').trim();
+    const name= String(r[nameCol]||'').trim();
+    if (!name&&!wno) continue;
+    if (wno && ppegKeys[wno]) { dup++; continue; }
+
+    const addr  = String(r[addrCol]||'').trim();
+    const phone = String(r[phoneCol]||'').trim();
+    const rawItem = String(r[itemCol]||'').trim();
+    const parsedItem = parseItem(rawItem);
+    const item = parsedItem.name;  // 품목명
+    const itemCount = parsedItem.count;  // 개수
+    const itemPrice = parsedItem.price;  // 금액
+    const amt   = String(r[amtCol]||'').trim();
+    const aDate = String(r[dateCol]||'').trim().slice(0,10);
+    const eDate = String(r[emitCol]||'').trim().slice(0,10);
+    const note  = String(r[noteCol]||'').trim();
+    const dong  = classifyDong(addr);
+    const emit  = eDate ? new Date(eDate) : new Date();
+    const pickup = nextWorkday(addDays(emit,1), is5Danji(dong)).toISOString().slice(0,10);
+    const amtNum = parseInt(amt.replace(/[^0-9]/g,''))||0;
+    const key = Date.now()+i;
+
+    saves[`${DB_RECEIPT}/${key}`] = {
+      _source:'빼기', _dong:dong, _ppegi_no:wno,
+      접수일자:aDate, 성명:name, 주소:addr, 전화번호:phone,
+      배출일자:eDate, 수거일자:pickup,
+      품목1:item, 금액1:amtNum?amtNum.toLocaleString()+'원':'',
+      총금액:amtNum?amtNum.toLocaleString()+'원':'',
+      입금일자:aDate, 비고:note, _created:key,
+    };
+    if (wno) newKeys[`${DB_PPEGI}/${wno}`] = true;
+    added++;
+  }
+  db.ref().update({...saves,...newKeys})
+    .then(() => {
+      hideLoading();
+      const el=document.getElementById('ur-ppegi');
+      el.style.display=''; el.textContent=`✅ 신규 ${added}건 추가 / 중복 ${dup}건 제외`;
+      showToast(`✅ 빼기앱 ${added}건 접수 완료`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 은행 파싱 ──
+function parseBank(rows) {
+  const hi = rows.findIndex(r => r.some(v => String(v).includes('거래일')||String(v).includes('날짜')));
+  const h  = rows[hi>=0?hi:0];
+  const nameCol = h.findIndex(v => String(v).includes('보낸분')||String(v).includes('이름'));
+  const amtCol  = h.findIndex(v => String(v).includes('입금액')||String(v).includes('입금'));
+  const dateCol = h.findIndex(v => String(v).includes('거래일')||String(v).includes('날짜'));
+
+  let matched=0, unmatched=0;
+  const updates={};
+  for (let i=(hi>=0?hi:0)+1; i<rows.length; i++) {
+    const r   = rows[i];
+    const amt = parseInt(String(r[amtCol]||'').replace(/[^0-9]/g,''));
+    if (!amt||amt<=0) continue;
+    const sender = String(r[nameCol]||'').replace(/[0-9\-\s동호]/g,'').replace(/tosspaymen.*/i,'').trim();
+    const txDate = String(r[dateCol]||'').trim().slice(0,10);
+    let found=false;
+    Object.entries(receipts).forEach(([id,rec]) => {
+      if (rec.입금일자) return;
+      const recName = (rec.성명||'').replace(/\s/g,'');
+      const recAmt  = parseInt((rec.총금액||'').replace(/[^0-9]/g,''));
+      if (sender && recName.includes(sender) && Math.abs(recAmt-amt)<100) {
+        updates[`${DB_RECEIPT}/${id}/입금일자`] = txDate;
+        matched++; found=true;
+      }
+    });
+    if (!found) unmatched++;
+  }
+  db.ref().update(updates)
+    .then(() => {
+      hideLoading();
+      const el=document.getElementById('ur-bank');
+      el.style.display=''; el.textContent=`✅ 입금확인 ${matched}건 / 미매칭 ${unmatched}건`;
+      showToast(`✅ 은행 매칭 완료 — ${matched}건 입금확인`);
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ── 동 분류 ──
+function classifyDong(addr) {
+  if (!addr) return '잠실본동';
+  if (addr.includes('삼전')) return '삼전동';
+  if (addr.includes('5단지')||addr.includes('올림픽선수')) return '5단지';
+  if (addr.includes('트리지움')) return '트리지움';
+  if (addr.includes('레이크팰리스')) return '레이크팰리스';
+  return '잠실본동';
+}
+
+// ══ 접수목록 정렬 순서 ══
+const DONG_ORDER = ['잠실본동','삼전동','5단지','트리지움','레이크팰리스','레이크','우성4차','잠실현대','삼전현대','가락시장','가락','특수마대'];
+function dongIdx(dong) {
+  const i = DONG_ORDER.indexOf(dong||'');
+  return i >= 0 ? i : 999;
+}
+
+// ══ 접수목록 테이블 ══
+// 레코드에서 품목 배열 추출 (_items 우선, 없으면 품목1~10/금액1~10/개수1~10 폴백)
+function getRecordItems(r) {
+  let items = [];
+  if (r._items) items = Array.isArray(r._items) ? r._items : Object.values(r._items);
+  if (!items.length) {
+    for (let i = 1; i <= 10; i++) {
+      const pname = r[`품목${i}`] || '';
+      if (!pname) break;
+      items.push({ 품목: pname, 금액: r[`금액${i}`] || '', 개수: r[`개수${i}`] || '' });
+    }
+  }
+  return items;
+}
+
+// ── 섹션 정의 ──
+const LIST_SECTIONS = [
+  { key:'jamsil',   label:'🏙 잠실동',              cls:'jamsil',  dongs: ['잠실본동'] },
+  { key:'samjeon',  label:'🌿 삼전동',              cls:'samjeon', dongs: ['삼전동'] },
+  { key:'apt-5',    label:'🏢 아파트 · 5단지',       cls:'apt',     dongs: ['5단지'] },
+  { key:'apt-tri',  label:'🏢 아파트 · 트리지움',    cls:'apt',     dongs: ['트리지움'] },
+  { key:'apt-lake', label:'🏢 아파트 · 레이크팰리스', cls:'apt',     dongs: ['레이크팰리스','레이크'] },
+  { key:'apt-woo',  label:'🏢 아파트 · 우성4차',     cls:'apt',     dongs: ['우성4차'] },
+  { key:'apt-jhd',  label:'🏢 아파트 · 잠실현대',    cls:'apt',     dongs: ['잠실현대'] },
+  { key:'apt-shd',  label:'🏢 아파트 · 삼전현대',    cls:'apt',     dongs: ['삼전현대'] },
+  { key:'garak',    label:'🏪 가락시장',             cls:'apt',     dongs: ['가락시장','가락'] },
+  { key:'special',  label:'🗑 특수마대',             cls:'special', dongs: ['특수마대'] },
+];
+
+const APT_LABEL = {
+  '5단지':'5단지아파트','트리지움':'트리지움','레이크팰리스':'레이크팰리스','레이크':'레이크팰리스',
+  '우성4차':'우성4차','잠실현대':'잠실현대','삼전현대':'삼전현대','가락시장':'가락시장','가락':'가락시장',
+};
+
+function renderTable() {
+  const container = document.getElementById('list-sections');
+
+  const fmt = d => {
+    if (!d || typeof d !== 'string' || d.length < 8) return '';
+    const parts = d.slice(5).split('-');
+    const m = parseInt(parts[0], 10), day = parseInt(parts[1], 10);
+    if (isNaN(m) || isNaN(day)) return '';
+    return `${m}/${day}`;
+  };
+  const fmtAmt = v => {
+    if (!v) return '';
+    if (v === '무상') return '무상';
+    const n = parseInt(String(v).replace(/[^0-9]/g,''));
+    return n ? n.toLocaleString()+'원' : '';
+  };
+
+  const allRows = Object.entries(receipts).map(([id,r]) => ({...r, _id:id}));
+
+  if (!allRows.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray);">접수 데이터가 없습니다</div>';
+    return;
+  }
+
+  const buildTableHtml = (rows) => {
+    if (!rows.length) return '<div style="padding:16px;color:var(--gray);font-size:13px;">데이터 없음</div>';
+
+    const theadHtml = `<thead><tr>
+      <th><input type="checkbox" onchange="toggleAll(this.checked)"></th>
+      <th style="width:34px;">#</th>
+      <th>접수자</th><th>접수일</th><th>주소</th><th>성명</th>
+      <th>전화번호</th><th>품목1</th><th>금액1</th><th>품목2</th><th>금액2</th><th>품목3</th><th>금액3</th>
+      <th>총금액</th><th>입금일자</th><th>수거일자</th><th>수거원</th><th>비고</th>
+    </tr></thead>`;
+
+    const tbodyHtml = rows.map((r, idx) => {
+      const 입금표시 = r.입금일자
+        ? `<span style="color:#16a34a;font-weight:700;white-space:nowrap;">🔥 ${fmt(r.입금일자)}</span>`
+        : `<span style="color:#f59e0b;font-weight:700;">미입금</span>`;
+      const 수거표시 = r.수거일자
+        ? `<span style="color:#16a34a;font-weight:700;white-space:nowrap;">✅ ${fmt(r.수거일자)}</span>`
+        : `<span style="color:var(--gray);font-size:11px;">미수거</span>`;
+      const 비고표시 = (r.비고||'') + (r._jiseo_date
+        ? `<span style='background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:700;'>🚛${r._jiseo_date.slice(5)}</span>`
+        : '');
+
+      const items = getRecordItems(r);
+      if (!items.length) items.push({품목:'', 금액:''});
+      const itemRows = [];
+      for (let i = 0; i < items.length; i += 3) itemRows.push(items.slice(i, i+3));
+      const rspan = itemRows.length;
+      const selCls = selectedIds.has(r._id) ? 'sel' : '';
+      const trAttr = `class="${selCls}" onclick="toggleSel('${r._id}')" ondblclick="openEditModal('${r._id}')" data-rid="${r._id}"`;
+
+      const itemCellsHtml = grp => {
+        const cells = [];
+        for (let c = 0; c < 3; c++) {
+          const it = grp[c];
+          cells.push(`<td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it?.품목||''}</td>`);
+          cells.push(`<td style="font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;text-align:right;">${fmtAmt(it?.금액)}</td>`);
+        }
+        return cells.join('');
+      };
+
+      const fixedLeft = `
+        <td rowspan="${rspan}" onclick="event.stopPropagation()"><input type="checkbox" ${selCls?'checked':''} onchange="toggleSel('${r._id}')"></td>
+        <td rowspan="${rspan}" style="text-align:center;font-size:11px;color:var(--gray);">${idx+1}</td>
+        <td rowspan="${rspan}" style="text-align:center;font-weight:800;font-size:13px;">${r.접수자||''}</td>
+        <td rowspan="${rspan}" style="font-size:12px;white-space:nowrap;">${fmt(r.접수일자)}</td>
+        <td rowspan="${rspan}" style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.주소||''}</td>
+        <td rowspan="${rspan}" style="font-weight:700;">${r.성명||''}</td>
+        <td rowspan="${rspan}" style="font-size:12px;white-space:nowrap;">${r.전화번호||''}</td>`;
+
+      const fixedRight = `
+        <td rowspan="${rspan}" style="font-weight:700;white-space:nowrap;text-align:right;">${fmtAmt(r.총금액)}</td>
+        <td rowspan="${rspan}" style="font-size:12px;">${입금표시}</td>
+        <td rowspan="${rspan}" style="font-size:12px;">${수거표시}</td>
+        <td rowspan="${rspan}" style="font-size:12px;">${r.수거원||''}</td>
+        <td rowspan="${rspan}" style="font-size:12px;color:var(--gray);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${비고표시}</td>`;
+
+      return itemRows.map((grp, ri) => {
+        if (ri === 0) return `<tr ${trAttr}>${fixedLeft}${itemCellsHtml(grp)}${fixedRight}</tr>`;
+        return `<tr ${trAttr}>${itemCellsHtml(grp)}</tr>`;
+      }).join('');
+    }).join('');
+
+    return `<div class="tbl-wrap"><table class="rtable">${theadHtml}<tbody>${tbodyHtml}</tbody></table></div>`;
+  };
+
+  container.innerHTML = LIST_SECTIONS.map(sec => {
+    const rows = allRows
+      .filter(r => sec.dongs.includes(r._dong))
+      .sort((a, b) => {
+        const dc = (b.접수일자||'').localeCompare(a.접수일자||'');
+        if (dc !== 0) return dc;
+        // 5단지: 동번호(주소 앞 숫자) 오름차순
+        if (sec.key === 'apt-5') {
+          const aDong = parseInt((a.주소||'').split('-')[0]) || 0;
+          const bDong = parseInt((b.주소||'').split('-')[0]) || 0;
+          if (aDong !== bDong) return aDong - bDong;
+        }
+        // 구청 접수번호 오름차순, 없으면 _created 오름차순
+        if (a._seq && b._seq) return a._seq - b._seq;
+        return (a._created || 0) - (b._created || 0);
+      });
+
+    if (!rows.length) return '';   // 데이터 없는 섹션은 렌더 생략
+
+    return `<div class="list-section">
+      <div class="list-section-header ${sec.cls}">
+        <span>${sec.label}</span>
+        <span class="list-section-badge">${rows.length}건</span>
+      </div>
+      ${buildTableHtml(rows)}
+    </div>`;
+  }).join('');
+}
+
+function toggleSel(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  // 같은 접수(id)에 속한 모든 줄(rowspan 분할분 포함) 하이라이트 동기화
+  document.querySelectorAll(`tr[data-rid="${id}"]`).forEach(tr => {
+    tr.classList.toggle('sel', selectedIds.has(id));
+  });
+  const cb = document.querySelector(`tr[data-rid="${id}"] td input[type="checkbox"]`);
+  if (cb) cb.checked = selectedIds.has(id);
+}
+function toggleAll(checked) {
+  Object.keys(receipts).forEach(id => { if(checked) selectedIds.add(id); else selectedIds.delete(id); });
+  renderTable();
+}
+function deleteSelected() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  if (!confirm(`선택된 ${selectedIds.size}건을 삭제하시겠습니까?`)) return;
+  const updates={};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}`]=null; });
+  db.ref().update(updates).then(() => { selectedIds.clear(); showToast('🗑 삭제 완료'); });
+}
+
+// ══ 통계 ══
+function renderStats() {
+  const all = Object.values(receipts);
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-n">${all.length}</div><div class="stat-l">전체 접수</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--green)">${all.filter(r=>r.입금일자).length}</div><div class="stat-l">입금완료</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--red)">${all.filter(r=>!r.입금일자).length}</div><div class="stat-l">미입금</div></div>
+    <div class="stat-card"><div class="stat-n" style="color:var(--blue)">${all.filter(r=>r.수거일자).length}</div><div class="stat-l">수거일 지정</div></div>`;
+}
+
+// ══ 작업지시서 생성 ══
+function createJiseo() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const sel = [...selectedIds].map(id => ({...receipts[id],_id:id})).filter(Boolean);
+  document.getElementById('jiseo-preview').innerHTML = sel.map(r =>
+    `✅ ${r.성명||''} / ${r._dong||''} / ${r.품목1||''} / ${r.총금액||''}`).join('<br>');
+  document.getElementById('jiseo-modal').classList.add('show');
+}
+
+function confirmJiseo() {
+  const jDate = document.getElementById('jiseo-date').value;
+  if (!jDate) { showToast('⚠️ 수거일자를 선택하세요'); return; }
+
+  const jiseoRows = {};
+  [...selectedIds].forEach(id => {
+    const r = receipts[id]; if (!r) return;
+    const dong  = r._dong||'잠실본동';
+    const sheet = (dong==='5단지'||dong==='트리지움'||dong==='레이크팰리스') ? '아파트' : dong;
+    if (sheet==='아파트') {
+      if (!jiseoRows['아파트']) jiseoRows['아파트']={};
+      if (!jiseoRows['아파트'][dong]) jiseoRows['아파트'][dong]=[];
+      jiseoRows['아파트'][dong].push({...r, 수거일자:jDate});
+    } else {
+      if (!jiseoRows[sheet]) jiseoRows[sheet]=[];
+      jiseoRows[sheet].push({...r, 수거일자:jDate});
+    }
+  });
+
+  showLoading('작업지시서 생성 중…');
+  db.ref(`${DB_JISEO}/${jDate}`).set(jiseoRows)
+    .then(() => {
+      hideLoading();
+      closeModal('jiseo-modal');
+      showToast(`✅ 작업지시서 생성 완료 — 기사앱 즉시 반영`);
+// 작업지시서 생성일 배지 기록
+      const updates = {};
+      [...selectedIds].forEach(id => {
+        updates[`${DB_RECEIPT}/${id}/_jiseo_date`] = jDate;
+      });
+      db.ref().update(updates);
+      selectedIds.clear(); renderTable();
+    })
+    .catch(err => { hideLoading(); showToast('❌ '+err.message); });
+}
+
+// ══ 엑셀 ══
+function exportExcel() {
+  const HDR = ['연번','접수자','접수일','주소','성명','전화번호',
+    '품목','금액','품목','금액','품목','금액',
+    '총금액','입금일자','수거일자','수거원','비고'];
+  const wb = XLSX.utils.book_new();
+  const dongMap = {'잠실본동':'잠실동','삼전동':'삼전동','5단지':'5단지','트리지움':'트리지움','레이크팰리스':'레이크팰리스'};
+
+  Object.entries(dongMap).forEach(([key, label]) => {
+    const filtered = Object.values(receipts)
+      .filter(r => r._dong === key)
+      .sort((a,b) => (a.접수일자||'').localeCompare(b.접수일자||''));
+    if (!filtered.length) return;
+
+    const aoa = [HDR];
+    const merges = [];
+    let rowIdx = 1; // 헤더 다음부터
+
+    filtered.forEach((r, idx) => {
+      // 품목 배열 (최대 24개)
+      const rawItems = r._items;
+      const allItems = rawItems
+        ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+        : [
+            {품목:r.품목1||'',금액:r.금액1||''},
+            {품목:r.품목2||'',금액:r.금액2||''},
+            {품목:r.품목3||'',금액:r.금액3||''},
+          ].filter(it => it.품목);
+      if (!allItems.length) allItems.push({품목:'',금액:''});
+
+      // 3개씩 묶어서 행 분리
+      const chunks = [];
+      for (let i=0; i<allItems.length; i+=3) chunks.push(allItems.slice(i,i+3));
+      const span = chunks.length;
+
+      chunks.forEach((chunk, ci) => {
+        const isFirst = ci === 0;
+        const row = [
+          isFirst ? idx+1 : '',
+          isFirst ? r.접수자||'' : '',
+          isFirst ? (r.접수일자||'').slice(5).replace('-','/') : '',
+          isFirst ? normalizeAddr(r.주소||'',key) : '',
+          isFirst ? r.성명||'' : '',
+          isFirst ? r.전화번호||'' : '',
+          chunk[0]?.품목||'',
+          chunk[0]?.금액 ? (chunk[0].금액 === '무상' ? '무상' : parseInt((chunk[0].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          chunk[1]?.품목||'',
+          chunk[1]?.금액 ? (chunk[1].금액 === '무상' ? '무상' : parseInt((chunk[1].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          chunk[2]?.품목||'',
+          chunk[2]?.금액 ? (chunk[2].금액 === '무상' ? '무상' : parseInt((chunk[2].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          isFirst ? (parseInt((r.총금액||'').replace(/[^0-9]/g,''))||'') : '',
+          isFirst ? (r.입금일자||'').slice(5).replace('-','/') : '',
+          isFirst ? (r.수거일자||'').slice(5).replace('-','/') : '',
+          isFirst ? r.수거원||'' : '',
+          isFirst ? (r.비고||'').replace(/인터넷/g,'(인)') : '',
+        ];
+        aoa.push(row);
+
+        // 병합: 2행 이상일 때 연번·접수자·접수일·주소·성명·전화·총금액·입금·수거·수거원·비고
+        if (isFirst && span > 1) {
+          [0,1,2,3,4,5,12,13,14,15,16].forEach(col => {
+            merges.push({s:{r:rowIdx,c:col}, e:{r:rowIdx+span-1,c:col}});
+          });
+        }
+        rowIdx++;
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      {wch:5},{wch:5},{wch:7},{wch:12},{wch:7},{wch:13},
+      {wch:11},{wch:7},{wch:11},{wch:7},{wch:11},{wch:7},
+      {wch:8},{wch:7},{wch:7},{wch:6},{wch:16}
+    ];
+    ws['!rows'] = aoa.map(() => ({hpt:15}));
+    ws['!pageSetup'] = {orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};
+    ws['!headerFooter'] = {oddFooter:'&C&P / &N'};
+    ws['!margins'] = {left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.3,footer:0.3};
+    XLSX.utils.book_append_sheet(wb, ws, label);
+  });
+
+  XLSX.writeFile(wb, `원장_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══ 환불 ══
+function searchRefund() {
+  const q = document.getElementById('rf-search').value.trim().toLowerCase();
+  if (!q) return;
+  const found = Object.entries(receipts).find(([,r]) =>
+    (r.성명||'').toLowerCase().includes(q)||(r.주소||'').toLowerCase().includes(q));
+  const card = document.getElementById('rf-result-card');
+  card.style.display='';
+  if (!found) {
+    document.getElementById('rf-result-name').textContent = '검색 결과 없음';
+    document.getElementById('rf-result-detail').textContent = '';
+    refundTarget = null; return;
+  }
+  const [id,r] = found;
+  refundTarget = {id,...r};
+  document.getElementById('rf-result-name').textContent = `${r.성명||''} / ${r._dong||''}`;
+  document.getElementById('rf-result-detail').textContent = `접수일: ${r.접수일자||''} | 입금액: ${r.총금액||'없음'} | 품목: ${r.품목1||''}`;
+}
+
+function openRefundForm() {
+  if (!refundTarget) return;
+  // 타입 초기화 → 전체환불
+  refundType = 'full';
+  document.getElementById('rft-full').classList.add('on');
+  document.getElementById('rft-partial').classList.remove('on');
+  document.getElementById('rf-partial-items').style.display='none';
+
+  document.getElementById('rf-owner').value  = refundTarget.성명||'';
+  document.getElementById('rf-amount').value = (refundTarget.총금액||'').replace(/[^0-9]/g,'');
+  document.getElementById('rf-form').style.display='';
+}
+
+function saveRefund() {
+  if (!refundTarget) return;
+  const owner   = document.getElementById('rf-owner').value.trim();
+  const account = document.getElementById('rf-account').value.trim();
+  const amount  = document.getElementById('rf-amount').value.trim();
+  if (!owner||!account) { showToast('⚠️ 예금주와 계좌번호를 입력하세요'); return; }
+
+  // 일부환불 선택 품목 수집
+  let refundItems = '';
+  if (refundType === 'partial') {
+    const rawItems = refundTarget._items;
+    const items = rawItems
+      ? (Array.isArray(rawItems)?rawItems:Object.values(rawItems))
+      : [{품목:refundTarget.품목1||'',금액:refundTarget.금액1||''},{품목:refundTarget.품목2||'',금액:refundTarget.금액2||''}].filter(it=>it.품목);
+    const checked = [...document.querySelectorAll('[id^="rfc-"]')].map((cb,i)=>cb.checked?items[i]:null).filter(Boolean);
+    refundItems = checked.map(it=>it.품목).join(', ');
+  } else {
+    refundItems = refundTarget.품목1||'';
+  }
+
+  const row = {
+    접수일:   refundTarget.접수일자||'',
+    입금자:   refundTarget.성명||'',
+    입금액:   refundTarget.총금액||'',
+    환불유형: refundType==='partial'?'일부환불':'전체환불',
+    환불액:   amount ? parseInt(amount.replace(/[^0-9]/g,'')).toLocaleString()+'원' : '',
+    예금주:   owner,
+    은행:     document.getElementById('rf-bank').value,
+    계좌:     account,
+    품목:     refundItems,
+    사유:     document.getElementById('rf-reason').value.trim(),
+    상태:     'wait',
+    _created: Date.now(),
+  };
+  db.ref(`${DB_REFUND}/${Date.now()}`).set(row)
+    .then(() => {
+      showToast('✅ 환불접수 저장 완료');
+      document.getElementById('rf-form').style.display='none';
+      document.getElementById('rf-result-card').style.display='none';
+      document.getElementById('rf-search').value='';
+      refundTarget=null;
+    })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function setRefundFilter(f) { refundFilter=f; renderRefundTable(); }
+
+function renderRefundTable() {
+  const rows = Object.entries(refunds)
+    .map(([id,r]) => ({...r,_id:id}))
+    .filter(r => refundFilter==='all' || r.상태===refundFilter)
+    .sort((a,b) => b._created-a._created);
+  const tbody = document.getElementById('refund-tbody');
+  if (!rows.length) {
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--gray);">환불 내역이 없습니다</td></tr>'; return;
+  }
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td><input type="checkbox" onchange="toggleRefundSel('${r._id}',this.checked)"></td>
+    <td>${r.접수일||''}</td><td style="font-weight:700;">${r.입금자||''}</td>
+    <td>${r.입금액||''}</td>
+    <td><span class="badge ${r.환불유형==='일부환불'?'b-wait':'b-paid'}">${r.환불유형||'전체환불'}</span></td>
+    <td style="color:var(--red);font-weight:700;">${r.환불액||''}</td>
+    <td>${r.예금주||''}</td><td>${r.은행||''}</td>
+    <td style="font-size:12px;">${r.계좌||''}</td>
+    <td style="font-size:12px;">${r.품목||''}</td>
+    <td style="font-size:12px;color:var(--gray);">${r.사유||''}</td>
+    <td><span class="badge ${r.상태==='done'?'b-done':'b-wait'}">${r.상태==='done'?'✅완료':'⏳대기'}</span></td>
+  </tr>`).join('');
+}
+
+function toggleRefundSel(id, checked) { if(checked) selectedRefundIds.add(id); else selectedRefundIds.delete(id); }
+function toggleRefundAll(checked) { Object.keys(refunds).forEach(id => { if(checked) selectedRefundIds.add(id); else selectedRefundIds.delete(id); }); }
+
+function bulkRefundDone() {
+  if (!selectedRefundIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const updates={};
+  selectedRefundIds.forEach(id => { updates[`${DB_REFUND}/${id}/상태`]='done'; });
+  db.ref().update(updates).then(() => { selectedRefundIds.clear(); showToast('✅ 환불완료 처리됨'); });
+}
+
+function exportJiseoExcel() {
+  const jDate = document.getElementById('jiseo-date').value;
+  if (!jDate) { showToast('⚠️ 수거일자를 선택하세요'); return; }
+  const sel = [...selectedIds].map(id => receipts[id]).filter(Boolean);
+  if (!sel.length) { showToast('⚠️ 항목을 선택하세요'); return; }
+
+  const HDR = ['연번','접수일','주소','성명','전화번호',
+    '품목','금액','품목','금액','품목','금액',
+    '총금액','수거일','비고'];
+  const wb = XLSX.utils.book_new();
+  const sheetDef = [
+    {label:'잠실동', keys:['잠실본동']},
+    {label:'삼전동', keys:['삼전동']},
+    {label:'아파트', keys:['5단지','트리지움','레이크팰리스']},
+  ];
+
+  sheetDef.forEach(({label, keys}) => {
+    const filtered = sel.filter(r => keys.includes(r._dong));
+    if (!filtered.length) return;
+
+    const aoa = [HDR];
+    const merges = [];
+    let rowIdx = 1;
+
+    filtered.forEach((r, idx) => {
+      const rawItems = r._items;
+      const allItems = rawItems
+        ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+        : [
+            {품목:r.품목1||'',금액:r.금액1||''},
+            {품목:r.품목2||'',금액:r.금액2||''},
+            {품목:r.품목3||'',금액:r.금액3||''},
+          ].filter(it => it.품목);
+      if (!allItems.length) allItems.push({품목:'',금액:''});
+
+      const chunks = [];
+      for (let i=0; i<allItems.length; i+=3) chunks.push(allItems.slice(i,i+3));
+      const span = chunks.length;
+
+      chunks.forEach((chunk, ci) => {
+        const isFirst = ci === 0;
+        const bigo = isFirst ? (r.비고||'').replace(/인터넷/g,'(인)') : '';
+        const row = [
+          isFirst ? idx+1 : '',
+          isFirst ? (r.접수일자||'').slice(5).replace('-','/') : '',
+          isFirst ? normalizeAddr(r.주소||'', r._dong||'') : '',
+          isFirst ? r.성명||'' : '',
+          isFirst ? r.전화번호||'' : '',
+          chunk[0]?.품목||'',
+          chunk[0]?.금액 ? (chunk[0].금액 === '무상' ? '무상' : parseInt((chunk[0].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          chunk[1]?.품목||'',
+          chunk[1]?.금액 ? (chunk[1].금액 === '무상' ? '무상' : parseInt((chunk[1].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          chunk[2]?.품목||'',
+          chunk[2]?.금액 ? (chunk[2].금액 === '무상' ? '무상' : parseInt((chunk[2].금액||'').replace(/[^0-9]/g,''))||0) : '',
+          isFirst ? parseInt((r.총금액||'').replace(/[^0-9]/g,''))||'' : '',
+          isFirst ? jDate.slice(5).replace('-','/') : '',
+          isFirst ? bigo : '',
+        ];
+        aoa.push(row);
+
+        if (isFirst && span > 1) {
+          [0,1,2,3,4,11,12,13,14].forEach(col => {
+            merges.push({s:{r:rowIdx,c:col}, e:{r:rowIdx+span-1,c:col}});
+          });
+        }
+        rowIdx++;
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      {wch:5},{wch:7},{wch:12},{wch:7},{wch:13},
+      {wch:11},{wch:7},{wch:11},{wch:7},{wch:11},{wch:7},
+      {wch:8},{wch:7},{wch:18}
+    ];
+    ws['!rows'] = aoa.map(() => ({hpt:15}));
+    ws['!pageSetup'] = {orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};
+    ws['!headerFooter'] = {oddFooter:'&C&P / &N'};
+    ws['!margins'] = {left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.3,footer:0.3};
+    XLSX.utils.book_append_sheet(wb, ws, label);
+  });
+
+  XLSX.writeFile(wb, `작업지시서_${jDate}.xlsx`);
+}
+
+function exportRefundExcel() {
+  const HDR = ['접수일','입금자','입금액','환불유형','환불액','예금주','은행','계좌','품목','사유','상태'];
+  const rows = [HDR, ...Object.values(refunds).map(r => HDR.map(k => r[k]||''))];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '환불목록');
+  XLSX.writeFile(wb, `환불목록_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ══ 유틸 ══
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showLoading(msg) { document.getElementById('loading-text').textContent=msg||'처리 중…'; document.getElementById('loading-overlay').classList.remove('hidden'); }
+function hideLoading()    { document.getElementById('loading-overlay').classList.add('hidden'); }
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3500);
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.show').forEach(m=>m.classList.remove('show')); });
+
+// ══ 환불 타입 (전체/일부) ══
+let refundType = 'full';
+
+function setRefundType(type) {
+  refundType = type;
+  document.getElementById('rft-full').classList.toggle('on', type==='full');
+  document.getElementById('rft-partial').classList.toggle('on', type==='partial');
+  const partialBox = document.getElementById('rf-partial-items');
+  partialBox.style.display = type==='partial' ? '' : 'none';
+
+  if (type==='full' && refundTarget) {
+    // 전체환불 → 총금액 자동
+    document.getElementById('rf-amount').value = (refundTarget.총금액||'').replace(/[^0-9]/g,'');
+  } else if (type==='partial' && refundTarget) {
+    // 일부환불 → 품목 체크박스 생성
+    buildPartialItemChecks();
+    document.getElementById('rf-amount').value = '';
+  }
+}
+
+function buildPartialItemChecks() {
+  if (!refundTarget) return;
+  const rawItems = refundTarget._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [
+        {품목:refundTarget.품목1||'', 금액:refundTarget.금액1||''},
+        {품목:refundTarget.품목2||'', 금액:refundTarget.금액2||''},
+        {품목:refundTarget.품목3||'', 금액:refundTarget.금액3||''},
+      ].filter(it => it.품목);
+
+  const box = document.getElementById('rf-item-checks');
+  box.innerHTML = items.length
+    ? items.map((it, i) => {
+        const price = parseInt((it.금액||'0').replace(/[^0-9]/g,''))||0;
+        return `<div class="partial-item-check">
+          <input type="checkbox" id="rfc-${i}" onchange="calcPartialTotal()">
+          <label for="rfc-${i}">${it.품목||'(품목없음)'}</label>
+          <span class="pi-price">${price ? price.toLocaleString()+'원' : '면제'}</span>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--gray);font-size:13px;">품목 정보가 없습니다. 환불액을 직접 입력하세요.</div>';
+}
+
+function calcPartialTotal() {
+  if (!refundTarget) return;
+  const rawItems = refundTarget._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [
+        {품목:refundTarget.품목1||'',금액:refundTarget.금액1||''},
+        {품목:refundTarget.품목2||'',금액:refundTarget.금액2||''},
+        {품목:refundTarget.품목3||'',금액:refundTarget.금액3||''},
+      ].filter(it=>it.품목);
+
+  let total = 0;
+  document.querySelectorAll('[id^="rfc-"]').forEach((cb, i) => {
+    if (cb.checked && items[i]) {
+      total += parseInt((items[i].금액||'0').replace(/[^0-9]/g,''))||0;
+    }
+  });
+  document.getElementById('rf-partial-total').textContent = total.toLocaleString()+'원';
+  document.getElementById('rf-amount').value = total || '';
+}
+
+// ══ 휴일 관리 ══
+const DB_HOLIDAYS = 'custom_holidays';  // Firebase 경로
+let customHolidays = {}; // { 'YYYY-MM-DD': true/false } — false = 정상작업일 복원
+
+// 통합 휴일 판별 (기본공휴일 + 커스텀)
+function isHolidayDate(ds) {
+  if (customHolidays[ds] === false) return false; // 강제 정상작업일
+  if (customHolidays[ds] === true)  return true;  // 강제 휴무일
+  return HOLIDAYS.includes(ds);
+}
+
+// 휴일 추가
+function addHoliday() {
+  const d = document.getElementById('holiday-add-date').value;
+  if (!d) { showToast('⚠️ 날짜를 선택하세요'); return; }
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(true)
+    .then(() => showToast(`🚫 ${d} 휴무일로 설정됨`))
+    .catch(err => showToast('❌ '+err.message));
+}
+
+// 정상작업일 복원
+function removeHoliday() {
+  const d = document.getElementById('holiday-add-date').value;
+  if (!d) { showToast('⚠️ 날짜를 선택하세요'); return; }
+  const isBase = HOLIDAYS.includes(d);
+  if (isBase) {
+    // 기본 공휴일을 정상작업일로 복원 → false로 저장
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(false)
+      .then(() => showToast(`✅ ${d} 정상작업일로 복원됨`))
+      .catch(err => showToast('❌ '+err.message));
+  } else {
+    // 커스텀 휴일 삭제
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+      .then(() => showToast(`✅ ${d} 휴일 해제됨`))
+      .catch(err => showToast('❌ '+err.message));
+  }
+}
+
+// 휴일 그리드 렌더
+function renderHolidayGrid() {
+  // 커스텀 휴일 그리드
+  const grid = document.getElementById('holiday-grid');
+  const customOn = Object.entries(customHolidays).filter(([,v]) => v===true).map(([k]) => k.replace(/_/g,'-'));
+  const baseRestored = Object.entries(customHolidays).filter(([,v]) => v===false).map(([k]) => k.replace(/_/g,'-'));
+
+  grid.innerHTML = customOn.length
+    ? customOn.sort().map(d => `<div class="holiday-chip on" title="클릭하면 해제" onclick="quickRemoveHoliday('${d}')">🚫 ${d}</div>`).join('')
+    + baseRestored.map(d => `<div class="holiday-chip off" title="공휴일이지만 정상작업일" onclick="quickRestoreHoliday('${d}')">✅ ${d} (복원됨)</div>`).join('')
+    : '<div style="color:var(--gray);font-size:13px;">추가된 커스텀 휴일이 없습니다</div>';
+
+  // 기본 공휴일 그리드
+  const baseGrid = document.getElementById('holiday-base-grid');
+  baseGrid.innerHTML = HOLIDAYS.sort().map(d => {
+    const isRestored = customHolidays[d.replace(/-/g,'_')] === false;
+    return `<div class="holiday-chip ${isRestored?'off':'on'}" onclick="toggleBaseHoliday('${d}')">
+      ${isRestored?'✅':'🚫'} ${d}${isRestored?' (정상)':''}
+    </div>`;
+  }).join('');
+}
+
+function quickRemoveHoliday(d) {
+  if (!confirm(`[${d}] 휴일을 해제하시겠습니까?`)) return;
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+    .then(() => showToast(`✅ ${d} 해제됨`));
+}
+function quickRestoreHoliday(d) {
+  db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+    .then(() => showToast(`🚫 ${d} 다시 휴일로 적용됨`));
+}
+function toggleBaseHoliday(d) {
+  const isRestored = customHolidays[d.replace(/-/g,'_')] === false;
+  if (isRestored) {
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).remove()
+      .then(() => showToast(`🚫 ${d} 다시 휴일 적용`));
+  } else {
+    db.ref(`${DB_HOLIDAYS}/${d.replace(/-/g,'_')}`).set(false)
+      .then(() => showToast(`✅ ${d} 정상작업일로 복원`));
+  }
+}
+
+// nextWorkday — 커스텀 휴일 반영
+// (기존 함수를 오버라이드)
+nextWorkday = function(d, is5) {
+  let cur = new Date(d);
+  for (let i = 0; i < 20; i++) {
+    const dow = cur.getDay();
+    const ds  = cur.toISOString().slice(0,10);
+    if (isHolidayDate(ds) || dow === 0 || (is5 && dow === 6)) {
+      cur = addDays(cur,1); continue;
+    }
+    return cur;
+  }
+  return cur;
+};
+
+
+
+// ═══════════════════════════════════════════
+//  주소 정규화 (신주소 → 본 xxx-xx / 삼 xxx-xx)
+// ═══════════════════════════════════════════
+function normalizeAddr(addr, dong) {
+  if (!addr) return '';
+  addr = addr.trim();
+
+  // 이미 본/삼/트리/레이크/5단지 형태면 그대로
+  if (/^(본|삼|트리지움|레이크팰리스|5단지|아파트)\s/.test(addr)) return addr;
+
+  // 신주소 감지 (로/길 포함 + 동 미포함)
+  const isRoad = /[로길]\s*\d/.test(addr) && !/동\s*\d/.test(addr);
+  if (isRoad) return addr; // 신주소는 그대로 (카카오 변환 필요)
+
+  // 지번 추출 (숫자-숫자 or 숫자만)
+  const jibunMatch = addr.match(/(\d+(?:-\d+)?)/);
+  const jibun = jibunMatch ? jibunMatch[1] : '';
+
+  // 동별 접두어 결정
+  let prefix = '본';
+  if (dong === '삼전동' || addr.includes('삼전')) prefix = '삼';
+  else if (dong === '5단지' || addr.includes('5단지') || addr.includes('올림픽선수')) prefix = '5단지';
+  else if (dong === '트리지움' || addr.includes('트리지움')) prefix = '트리지움';
+  else if (dong === '레이크팰리스' || addr.includes('레이크팰리스')) prefix = '레이크팰리스';
+  else if (dong === '잠실본동' || addr.includes('잠실본동') || addr.includes('잠실')) prefix = '본';
+
+  return jibun ? `${prefix} ${jibun}` : addr;
+}
+
+// 실시간 입력 변환 (타이핑 중)
+function liveNormalizeAddr(addrId, dongId) {
+  const el   = document.getElementById(addrId);
+  const dong = document.getElementById(dongId)?.value || '잠실본동';
+  const val  = el.value;
+  // 신주소 감지 알림
+  const disp = document.getElementById(addrId.replace('addr','addr-display'));
+  if (disp) {
+    const isRoad = /[로길]\s*\d/.test(val);
+    if (isRoad && val.length > 4) {
+      disp.style.display = '';
+      disp.textContent = '⚠️ 신주소 감지 — 오른쪽 주소검색 버튼으로 구주소 변환하세요';
+      disp.style.color = 'var(--orange)';
+    } else {
+      disp.style.display = 'none';
+    }
+  }
+}
+
+// blur 시 최종 정규화
+function onAddrBlur(el, dongId) {
+  const dong = dongId ? document.getElementById(dongId)?.value : '잠실본동';
+  const normalized = normalizeAddr(el.value, dong||'잠실본동');
+  el.value = normalized;
+  // 동 자동 분류
+  if (dongId) {
+    const newDong = classifyDong(normalized);
+    const dongEl  = document.getElementById(dongId);
+    if (dongEl && newDong) dongEl.value = newDong;
+  }
+}
+
+// ── 카카오 우편번호 팝업 ──
+function openAddrSearch(addrId, dongId, displayId) {
+  new daum.Postcode({
+    oncomplete: function(data) {
+      // 지번주소 우선, 없으면 도로명
+      const jibun = data.jibunAddress || data.autoJibunAddress || '';
+      const road  = data.roadAddress  || '';
+
+      // 표기 변환
+      const dong    = document.getElementById(dongId)?.value || '잠실본동';
+      const display = document.getElementById(displayId);
+
+      // 지번에서 동 제거 후 숫자만 추출해서 normalizeAddr 처리
+      const normalized = normalizeAddr(jibun || road, dong);
+
+      document.getElementById(addrId).value = normalized;
+
+      // 원래 주소 참고용 표시
+      if (display) {
+        display.style.display = '';
+        display.style.color   = 'var(--purple)';
+        display.textContent   = `지번: ${jibun || '-'}  |  도로명: ${road}`;
+      }
+
+      // 동 자동 분류
+      const newDong = classifyDong(jibun || road);
+      if (dongId && newDong) {
+        const dongEl = document.getElementById(dongId);
+        if (dongEl) dongEl.value = newDong;
+      }
+    }
+  }).open();
+}
+
+// ═══════════════════════════════════════════
+//  통합검색 탭
+// ═══════════════════════════════════════════
+let srchAcIdx = -1;
+
+function getSrchAllRows() {
+  const rows = [];
+  const useW = document.getElementById('src-wongjang')?.checked;
+  const useJ = document.getElementById('src-jiseo')?.checked;
+  const useR = document.getElementById('src-receipt')?.checked;
+
+  // 원장 데이터 (wongjang_data)
+  if (useW) {
+    Object.keys(wongjangData).sort().forEach(d => {
+      const dd = wongjangData[d] || {};
+      ['잠실본동','삼전동'].forEach(s => {
+        (dd[s]||[]).forEach(r => rows.push({...r,
+          _srchSrc:'원장', _srchDate:d, _srchDong:s==='잠실본동'?'잠실동':s}));
+      });
+      if (dd['아파트']) {
+        Object.entries(dd['아파트']).forEach(([sub, list]) => {
+          list.forEach(r => rows.push({...r,
+            _srchSrc:'원장', _srchDate:d, _srchDong:`아파트·${sub}`}));
+        });
+      }
+    });
+  }
+
+  // 작업지시서 (jiseo_data)
+  if (useJ) {
+    Object.keys(jiseoData).sort().forEach(d => {
+      const dd = jiseoData[d] || {};
+      ['잠실본동','삼전동'].forEach(s => {
+        (dd[s]||[]).forEach(r => rows.push({...r,
+          _srchSrc:'작업지시서', _srchDate:d, _srchDong:s==='잠실본동'?'잠실동':s}));
+      });
+      if (dd['아파트']) {
+        Object.entries(dd['아파트']).forEach(([sub, list]) => {
+          list.forEach(r => rows.push({...r,
+            _srchSrc:'작업지시서', _srchDate:d, _srchDong:`아파트·${sub}`}));
+        });
+      }
+    });
+  }
+
+  // 접수목록 (receipt_data)
+  if (useR) {
+    Object.entries(receipts).forEach(([id, r]) => {
+      rows.push({...r,
+        _srchSrc:'접수', _srchDate:r.접수일자||'', _srchDong:r._dong||''});
+    });
+  }
+
+  return rows;
+}
+
+function srchAutoSuggest() {
+  const q   = document.getElementById('srch-input').value.trim();
+  const ac  = document.getElementById('srch-ac');
+  srchAcIdx = -1;
+  if (!q) { ac.style.display='none'; srchRender(); return; }
+
+  const allRows = getSrchAllRows();
+  const ql = q.toLowerCase();
+  const seen = new Set();
+  const suggestions = [];
+
+  allRows.forEach(r => {
+    [['성명','이름'],['주소','주소'],['전화번호','전화'],['품목1','품목']].forEach(([col, type]) => {
+      const v = String(r[col]||'');
+      if (v && v.toLowerCase().includes(ql) && !seen.has(col+':'+v)) {
+        seen.add(col+':'+v);
+        suggestions.push({type, val:v});
+      }
+    });
+  });
+
+  if (!suggestions.length) { ac.style.display='none'; return; }
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  ac.innerHTML = suggestions.slice(0,12).map(s =>
+    `<div class="srch-ac-item" onmousedown="pickSrchAc('${s.val.replace(/'/g,"\'")}')">
+      <span class="srch-ac-badge">${s.type}</span>
+      <span>${s.val.replace(re,'<mark>$1</mark>')}</span>
+    </div>`).join('');
+  ac.style.display = 'block';
+}
+
+function pickSrchAc(val) {
+  document.getElementById('srch-input').value = val;
+  document.getElementById('srch-ac').style.display = 'none';
+  doSrch();
+}
+
+function srchKeydown(e) {
+  const ac    = document.getElementById('srch-ac');
+  const items = [...ac.querySelectorAll('.srch-ac-item')];
+  if (e.key==='ArrowDown') {
+    e.preventDefault();
+    srchAcIdx = Math.min(srchAcIdx+1, items.length-1);
+    items.forEach((el,i) => el.classList.toggle('focused', i===srchAcIdx));
+  } else if (e.key==='ArrowUp') {
+    e.preventDefault();
+    srchAcIdx = Math.max(srchAcIdx-1, 0);
+    items.forEach((el,i) => el.classList.toggle('focused', i===srchAcIdx));
+  } else if (e.key==='Enter') {
+    if (srchAcIdx>=0 && items[srchAcIdx]) {
+      items[srchAcIdx].dispatchEvent(new MouseEvent('mousedown'));
+    } else doSrch();
+  } else if (e.key==='Escape') {
+    ac.style.display='none';
+  }
+}
+
+function doSrch() {
+  document.getElementById('srch-ac').style.display = 'none';
+  const q = document.getElementById('srch-input').value.trim().toLowerCase();
+  if (!q) { srchRender(); return; }
+
+  const SCOLS = ['성명','주소','전화번호','품목1','품목2','품목3','비고'];
+  const allRows = getSrchAllRows();
+  const matched = allRows
+    .filter(r => SCOLS.some(c => String(r[c]||'').toLowerCase().includes(q)))
+    .sort((a,b) => (b._srchDate||'').localeCompare(a._srchDate||''));
+
+  renderSrchTable(matched, q);
+  document.getElementById('srch-count').textContent =
+    matched.length ? `🔍 ${matched.length}건 찾음 / 전체 ${allRows.length}건` : '검색 결과 없음';
+  document.getElementById('srch-count').style.color = matched.length ? 'var(--green)' : 'var(--red)';
+  document.getElementById('srch-result-card').style.display = '';
+}
+
+function srchRender() {
+  // 검색어 없으면 결과 숨기기
+  const q = document.getElementById('srch-input').value.trim();
+  if (!q) {
+    document.getElementById('srch-result-card').style.display = 'none';
+    document.getElementById('srch-count').textContent = '';
+  }
+}
+
+function clearSrch() {
+  document.getElementById('srch-input').value = '';
+  document.getElementById('srch-ac').style.display = 'none';
+  document.getElementById('srch-result-card').style.display = 'none';
+  document.getElementById('srch-count').textContent = '';
+  srchAcIdx = -1;
+}
+
+function renderSrchTable(rows, q) {
+  const re = q ? new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi') : null;
+  const hl = v => re && typeof v==='string' ? v.replace(re,'<mark>$1</mark>') : v;
+
+  const srcBadge = s =>
+    s==='원장'       ? `<span class="badge b-wongjang">📋 원장</span>` :
+    s==='작업지시서'  ? `<span class="badge b-jiseo">🚛 지시서</span>` :
+                       `<span class="badge b-receipt">📥 접수</span>`;
+
+  if (!rows.length) {
+    document.getElementById('srch-tbody').innerHTML =
+      `<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--gray);">검색 결과가 없습니다</td></tr>`;
+    return;
+  }
+
+  srchCache = rows;  // 전역 캐시 업데이트
+  const fmtD = d => {
+    if (!d || typeof d !== 'string' || d.length < 8) return d || '';
+    const parts = d.slice(5).split('-');
+    const m   = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    if (isNaN(m) || isNaN(day)) return '';
+    return `${m}/${day}`;
+  };
+  const fa = v => {
+    if (!v) return '';
+    if (v === '무상') return '무상';
+    const n = parseInt(String(v).replace(/[^0-9]/g,''));
+    return n ? n.toLocaleString()+'원' : '';
+  };
+  document.getElementById('srch-tbody').innerHTML = rows.map((r, i) => {
+    const 입금표시 = r.입금일자
+      ? `<span style="color:#16a34a;font-weight:700;white-space:nowrap;">🔥 ${fmtD(r.입금일자)}</span>`
+      : `<span style="color:#f59e0b;font-weight:700;">⏳</span>`;
+    const 수거표시 = r.수거일자
+      ? `<span style="color:#16a34a;font-weight:700;white-space:nowrap;">✅ ${fmtD(r.수거일자)}</span>`
+      : `<span style="color:var(--gray);font-size:11px;">미수거</span>`;
+    return `<tr style="cursor:pointer;" ondblclick="openSrchModal(${i})">
+    <td>${srcBadge(r._srchSrc)}</td>
+    <td style="font-size:12px;white-space:nowrap;">${fmtD(r._srchDate||r.접수일자)}</td>
+    <td><span class="badge b-dong">${r._srchDong||r._dong||''}</span></td>
+    <td style="font-weight:700;">${hl(r.성명||'')}</td>
+    <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${hl(r.주소||'')}</td>
+    <td style="font-size:12px;white-space:nowrap;">${hl(r.전화번호||'')}</td>
+    <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${hl(r.품목1||'')}</td>
+    <td style="font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;text-align:right;">${fa(r.금액1)}</td>
+    <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${hl(r.품목2||'')}</td>
+    <td style="font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;text-align:right;">${fa(r.금액2)}</td>
+    <td style="font-weight:700;white-space:nowrap;text-align:right;">${fa(r.총금액)}</td>
+    <td style="font-size:12px;">${입금표시}</td>
+    <td style="font-size:12px;">${수거표시}</td>
+    <td style="font-size:12px;color:var(--gray);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.비고||''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// 검색창 바깥 클릭 시 자동완성 닫기
+document.addEventListener('click', e => {
+  if (!e.target.closest('#srch-input') && !e.target.closest('#srch-ac')) {
+    const ac = document.getElementById('srch-ac');
+    if (ac) ac.style.display = 'none';
+  }
+});
+
+</script>
+
+<!-- ══ 통합검색 상세 모달 ══ -->
+<div id="srch-modal" onclick="if(event.target===this)closeSrchModal()"
+  style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.48);
+         align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;padding:28px 30px;
+              width:min(640px,96vw);max-height:88vh;overflow-y:auto;
+              box-shadow:0 24px 60px rgba(0,0,0,.28);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div id="srch-modal-title" style="font-size:17px;font-weight:900;color:#111827;"></div>
+      <button onclick="closeSrchModal()"
+        style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;
+               font-size:18px;cursor:pointer;color:#6b7280;">✕</button>
+    </div>
+    <div id="srch-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ 접수 수정 모달 ══ -->
+<style>
+/* 수정 모달 품목 행 */
+.em-item-row{display:grid;grid-template-columns:1fr 90px 62px 34px;gap:6px;align-items:center;margin-bottom:8px;}
+.em-item-row input{border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-size:13px;font-family:var(--font);outline:none;width:100%;}
+.em-item-row input:focus{border-color:var(--blue);}
+.em-item-row input[type=number]{text-align:right;}
+.em-item-del{width:34px;height:36px;border:none;background:var(--red-l);color:var(--red);border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0;}
+.em-items-hdr{display:grid;grid-template-columns:1fr 90px 62px 34px;gap:6px;margin-bottom:4px;}
+.em-items-hdr span{font-size:11px;font-weight:700;color:var(--gray);padding-left:2px;}
+</style>
+<div id="edit-modal"
+  onmousedown="if(event.target===this)this._mdownOnBg=true;else this._mdownOnBg=false"
+  onclick="if(event.target===this&&this._mdownOnBg)closeEditModal()"
+  style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.48);
+         align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;padding:24px;
+              width:min(660px,98vw);max-height:92vh;overflow-y:auto;
+              box-shadow:0 24px 60px rgba(0,0,0,.28);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:900;">✏️ 접수 수정</div>
+      <button onclick="closeEditModal()"
+        style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div class="form-grid">
+      <!-- 접수자 -->
+      <div class="form-group">
+        <label class="form-label">접수자</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select class="form-select" id="em-접수자" style="flex:1;"></select>
+          <button type="button" onclick="open접수자설정()"
+            style="padding:9px 10px;background:var(--gray-l);border:none;border-radius:10px;
+                   font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);color:var(--gray);white-space:nowrap;">⚙️</button>
+        </div>
+      </div>
+      <!-- 접수일자 -->
+      <div class="form-group">
+        <label class="form-label">접수일자</label>
+        <input type="date" class="form-input" id="em-date">
+      </div>
+      <!-- 동 구분 -->
+      <div class="form-group">
+        <label class="form-label">동 구분</label>
+        <select class="form-select" id="em-dong">
+          <option value="잠실본동">잠실동</option>
+          <option value="삼전동">삼전동</option>
+          <option value="5단지">5단지아파트</option>
+          <option value="트리지움">트리지움</option>
+          <option value="레이크팰리스">레이크팰리스</option>
+        </select>
+      </div>
+      <!-- 성명 -->
+      <div class="form-group">
+        <label class="form-label">성명</label>
+        <input type="text" class="form-input" id="em-name">
+      </div>
+      <!-- 전화번호 -->
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input type="tel" class="form-input" id="em-phone" maxlength="13" onblur="formatPhone(event)">
+      </div>
+      <!-- 주소 (full) -->
+      <div class="form-group full">
+        <label class="form-label">주소</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-input" id="em-addr"
+            placeholder="구주소 또는 검색" style="flex:1;"
+            onblur="onAddrBlur(this,'em-dong')">
+          <button type="button"
+            style="padding:10px 14px;background:var(--yellow);color:#fff;border:none;
+                   border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;
+                   white-space:nowrap;font-family:var(--font);"
+            onclick="openAddrSearch('em-addr','em-dong','em-addr-display')">
+            🔍 검색
+          </button>
+        </div>
+        <div id="em-addr-display" style="margin-top:4px;font-size:12px;color:var(--purple);font-weight:700;display:none;"></div>
+      </div>
+    </div>
+
+    <!-- 품목 섹션 -->
+    <div style="margin-top:14px;margin-bottom:6px;">
+      <div style="font-size:12px;font-weight:700;color:var(--gray);margin-bottom:8px;">📦 품목 목록</div>
+      <div class="em-items-hdr">
+        <span>품목명</span><span style="text-align:right;">금액(원)</span><span style="text-align:center;">개수</span><span></span>
+      </div>
+      <div id="em-item-rows"></div>
+      <button type="button" onclick="addEditItemRow()"
+        style="width:100%;padding:8px;border:2px dashed var(--border);border-radius:10px;
+               background:none;font-size:13px;font-weight:700;cursor:pointer;color:var(--gray);
+               font-family:var(--font);margin-top:4px;"
+        onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--gray)'">
+        + 품목 추가
+      </button>
+    </div>
+
+    <!-- 총금액 / 수거일자 / 입금일자 / 수거원 / 비고 -->
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label class="form-label">총금액 <span style="font-size:10px;color:var(--gray);">(자동계산, 수정가능)</span></label>
+        <input type="number" class="form-input" id="em-total" placeholder="0" style="text-align:right;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">입금일자</label>
+        <input type="date" class="form-input" id="em-paid">
+      </div>
+      <div class="form-group">
+        <label class="form-label">수거일자</label>
+        <input type="date" class="form-input" id="em-pickup">
+      </div>
+      <div class="form-group">
+        <label class="form-label">수거원</label>
+        <input type="text" class="form-input" id="em-worker" placeholder="수거원 이름">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">비고</label>
+        <input type="text" class="form-input" id="em-note">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="tb-btn gray" style="flex:1;" onclick="closeEditModal()">취소</button>
+      <button class="tb-btn red" style="flex:1;" onclick="deleteReceipt()">🗑 삭제</button>
+      <button class="tb-btn primary" style="flex:1;" onclick="saveEditReceipt()">💾 저장</button>
+    </div>
+  </div>
+</div>
+<!-- ══ 탭6: 테스트 ══ -->
+<div class="section" id="tab-test">
+  <div class="card">
+    <div class="card-title">📥 접수장부 업로드</div>
+    <div style="padding:20px;color:var(--gray);line-height:1.6;">
+      <p>정섭 원장(접수장부) 또는 구청 다운로드 엑셀 파일을 끌어다 놓으세요.</p>
+      <input type="file" id="test-file" accept=".xlsx,.xls" style="display:none;" onchange="handleTestFile(event)">
+      <div id="test-dropzone"
+        style="margin-top:16px;border:2px dashed var(--blue);padding:40px 20px;border-radius:12px;
+               text-align:center;cursor:pointer;transition:background 0.2s;"
+        onclick="document.getElementById('test-file').click()"
+        ondragover="event.preventDefault();this.style.background='rgba(66,133,244,0.08)'"
+        ondragleave="this.style.background=''"
+        ondrop="this.style.background='';handleTestFileDrop(event)">
+        <div style="font-size:36px;margin-bottom:8px;">📂</div>
+        <div style="font-size:14px;font-weight:700;color:var(--blue);">엑셀 파일을 여기에 끌어다 놓거나 클릭해서 선택</div>
+        <div style="font-size:12px;margin-top:6px;color:var(--gray);">.xlsx / .xls 지원</div>
+      </div>
+      <div id="test-status" style="margin-top:12px;font-size:13px;"></div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════
+//  통합검색 상세 모달
+// ═══════════════════════════════════════════
+
+function openSrchModal(i) {
+  const r = srchCache[i];
+  if (!r) return;
+  const fields = [
+    {label:'소스',     val:r._srchSrc||'',          icon:'📂'},
+    {label:'날짜',     val:r._srchDate||'',          icon:'📅'},
+    {label:'동',       val:r._srchDong||r._dong||'', icon:'📍'},
+    {label:'접수일자', val:r.접수일자||'',            icon:'📆'},
+    {label:'성명',     val:r.성명||'',               icon:'🙍'},
+    {label:'주소',     val:r.주소||'',               icon:'📍'},
+    {label:'전화번호', val:r.전화번호||'',            icon:'📞'},
+  ];
+  const rawItems = r._items;
+  const items = rawItems
+    ? (Array.isArray(rawItems) ? rawItems : Object.values(rawItems))
+    : [{품목:r.품목1||'',금액:r.금액1||''},{품목:r.품목2||'',금액:r.금액2||''},{품목:r.품목3||'',금액:r.금액3||''}]
+        .filter(it => it.품목);
+  items.forEach((it, idx) => {
+    if (it.품목) fields.push({label:`품목${idx+1}`, val:it.품목, icon:'📦'});
+    if (it.금액) fields.push({label:`금액${idx+1}`, val:it.금액, icon:'💵'});
+  });
+  fields.push(
+    {label:'총금액',   val:r.총금액||'',   icon:'💰'},
+    {label:'입금일자', val:r.입금일자||'', icon:'🏦'},
+    {label:'수거일자', val:r.수거일자||'', icon:'🚛'},
+    {label:'비고',     val:r.비고||'',     icon:'📝'},
+  );
+  document.getElementById('srch-modal-title').textContent = (r.성명||r.주소||'상세') + ' — 상세정보';
+  document.getElementById('srch-modal-body').innerHTML =
+    fields.filter(f=>f.val).map(f=>`
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;
+                  padding:9px 0;border-bottom:1px solid #f3f4f6;align-items:start;">
+        <div style="font-size:12px;font-weight:700;color:#6b7280;">${f.icon} ${f.label}</div>
+        <div style="font-size:14px;font-weight:600;color:#111827;word-break:keep-all;">${f.val}</div>
+      </div>`).join('') || '<div style="color:#9ca3af;font-size:14px;padding:16px 0;">내용 없음</div>';
+  document.getElementById('srch-modal').style.display = 'flex';
+}
+function closeSrchModal() {
+  document.getElementById('srch-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+//  접수 수정 모달
+// ═══════════════════════════════════════════
+let srchCache    = [];
+let editTargetId = null;
+
+// ── 수정 모달: 품목 행 추가 ──
+function addEditItemRow(name='', amt=0, cnt='') {
+  const rid = 'emr-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+  const div = document.createElement('div');
+  div.className = 'em-item-row';
+  div.id = rid;
+  div.innerHTML = `
+    <input type="text"   class="em-item-name" placeholder="품목명" value="${name.replace(/"/g,'&quot;')}">
+    <input type="number" class="em-item-amt"  placeholder="0" min="0" value="${amt||''}" oninput="updateEditTotal()" style="text-align:right;">
+    <input type="number" class="em-item-cnt"  placeholder="갯수" min="1" value="${cnt||''}" oninput="calcEditItemPrice(this)" style="text-align:center;">
+    <button class="em-item-del" onclick="document.getElementById('${rid}').remove();updateEditTotal();" title="삭제">✕</button>`;
+  document.getElementById('em-item-rows').appendChild(div);
+}
+
+// 갯수 입력 시 단가×갯수 자동계산 (수정 모달)
+function calcEditItemPrice(cntInp) {
+  const row   = cntInp.closest('.em-item-row');
+  const name  = (row.querySelector('.em-item-name')?.value || '').trim();
+  const amtInp = row.querySelector('.em-item-amt');
+  const cnt   = parseInt(cntInp.value) || 1;
+  const found = PRICE_LIST.find(p => p.name === name || p.item === name);
+  if (found && found.price != null) {
+    amtInp.value = found.price * cnt;
+    updateEditTotal();
+  }
+}
+
+// ── 수정 모달: 총금액 자동계산 ──
+function updateEditTotal() {
+  let total = 0;
+  document.querySelectorAll('#em-item-rows .em-item-amt').forEach(inp => {
+    total += parseInt(inp.value || 0);
+  });
+  document.getElementById('em-total').value = total || '';
+}
+
+function openEditModal(id) {
+  const r = receipts[id];
+  if (!r) return;
+  editTargetId = id;
+
+  // 접수자 셀렉트 동기화
+  const emSel = document.getElementById('em-접수자');
+  if (emSel) {
+    const list = get접수자목록();
+    emSel.innerHTML = list.map(n => `<option value="${n}">${n}</option>`).join('');
+    emSel.value = r.접수자 || list[0] || '';
+  }
+
+  document.getElementById('em-date').value    = r.접수일자||'';
+  document.getElementById('em-dong').value    = r._dong||'잠실본동';
+  document.getElementById('em-name').value    = r.성명||'';
+  document.getElementById('em-phone').value   = r.전화번호||'';
+  document.getElementById('em-addr').value    = r.주소||'';
+  document.getElementById('em-total').value   = (r.총금액||'').replace(/[^0-9]/g,'');
+  document.getElementById('em-pickup').value  = r.수거일자||'';
+  document.getElementById('em-paid').value    = r.입금일자||'';
+  document.getElementById('em-worker').value  = r.수거원||'';
+  document.getElementById('em-note').value    = r.비고||'';
+  document.getElementById('em-addr-display').style.display = 'none';
+
+  // 품목 행 초기화 후 재생성
+  document.getElementById('em-item-rows').innerHTML = '';
+
+  // _items 배열 우선, 없으면 품목1~N / 금액1~N / 개수1~N 폴백
+  const rawItems = r._items;
+  let items = [];
+  if (rawItems) {
+    items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+  }
+
+  // _items가 비어 있거나 없으면 필드형으로 구성
+  if (!items.length) {
+    for (let i = 1; i <= 10; i++) {
+      const pname = r[`품목${i}`] || '';
+      if (!pname) break;
+      items.push({
+        품목: pname,
+        금액: r[`금액${i}`] || '',
+        개수: r[`개수${i}`] || '',
+      });
+    }
+  }
+  if (!items.length) items.push({품목:'', 금액:'', 개수:''});
+
+  items.forEach(it => {
+    const amt = parseInt((it.금액||'').replace(/[^0-9]/g,'')) || 0;
+    const cnt = it.개수 || '';
+    addEditItemRow(it.품목||'', amt, cnt);
+  });
+
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  editTargetId = null;
+}
+
+function saveEditReceipt() {
+  if (!editTargetId) return;
+
+  // 품목 수집
+  const rows = document.querySelectorAll('#em-item-rows .em-item-row');
+  const newItems = [];
+  rows.forEach(row => {
+    const pname = row.querySelector('.em-item-name').value.trim();
+    const amt   = parseInt(row.querySelector('.em-item-amt').value || 0);
+    const cnt   = row.querySelector('.em-item-cnt').value.trim();
+    if (pname) newItems.push({ 품목: pname, 금액: amt ? amt.toLocaleString()+'원' : '', 개수: cnt });
+  });
+
+  // 총금액
+  const manualTotal = parseInt(document.getElementById('em-total').value || 0);
+  const autoTotal   = newItems.reduce((s, it) => s + parseInt((it.금액||'').replace(/[^0-9]/g,'')||0), 0);
+  const finalTotal  = manualTotal || autoTotal;
+
+  // 필드형 저장 (품목1~N, 금액1~N, 개수1~N)
+  const updates = {
+    접수자:   document.getElementById('em-접수자').value,
+    접수일자: document.getElementById('em-date').value,
+    _dong:    document.getElementById('em-dong').value,
+    성명:     document.getElementById('em-name').value.trim(),
+    전화번호: document.getElementById('em-phone').value.trim(),
+    주소:     document.getElementById('em-addr').value.trim(),
+    총금액:   finalTotal ? finalTotal.toLocaleString()+'원' : '',
+    수거일자: document.getElementById('em-pickup').value,
+    입금일자: document.getElementById('em-paid').value,
+    수거원:   document.getElementById('em-worker').value.trim(),
+    비고:     document.getElementById('em-note').value.trim(),
+    _items:   newItems,
+  };
+
+  // 기존 품목 필드 초기화 후 재설정 (최대 10개)
+  for (let i = 1; i <= 10; i++) {
+    updates[`품목${i}`] = newItems[i-1]?.품목 || '';
+    updates[`금액${i}`] = newItems[i-1]?.금액 || '';
+    updates[`개수${i}`] = newItems[i-1]?.개수 || '';
+  }
+  // 레거시 필드도 동기
+  updates.품목1 = newItems[0]?.품목 || '';
+  updates.금액1 = newItems[0]?.금액 || '';
+  updates.품목2 = newItems[1]?.품목 || '';
+  updates.금액2 = newItems[1]?.금액 || '';
+
+  db.ref(`${DB_RECEIPT}/${editTargetId}`).update(updates)
+    .then(() => { closeEditModal(); showToast('✅ 수정 완료'); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function deleteReceipt() {
+  if (!editTargetId) return;
+  if (!confirm('이 접수 건을 삭제하시겠습니까?')) return;
+  db.ref(`${DB_RECEIPT}/${editTargetId}`).remove()
+    .then(() => { closeEditModal(); showToast('🗑 삭제 완료'); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+// ESC 키 통합
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSrchModal();
+    closeEditModal();
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+  }
+});
+function bulkSetPaid() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const updates = {};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}/입금일자`] = today; });
+  db.ref().update(updates)
+    .then(() => { selectedIds.clear(); showToast(`✅ ${Object.keys(updates).length}건 입금확인 완료`); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function bulkSetPickup() {
+  if (!selectedIds.size) { showToast('⚠️ 먼저 항목을 선택하세요'); return; }
+  const d = document.getElementById('bulk-pickup')?.value;
+  if (!d) { showToast('⚠️ 수거일을 선택하세요'); return; }
+  const updates = {};
+  selectedIds.forEach(id => { updates[`${DB_RECEIPT}/${id}/수거일자`] = d; });
+  db.ref().update(updates)
+    .then(() => { selectedIds.clear(); showToast(`✅ ${Object.keys(updates).length}건 수거일 → ${d} 변경`); })
+    .catch(err => showToast('❌ '+err.message));
+}
+
+function handleTestFileDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  processLedgerFile(file);
+}
+
+function handleTestFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  processLedgerFile(file);
+}
+
+function processLedgerFile(file) {
+  const reader = new FileReader();
+  reader.onload = async evt => {
+    try {
+      const wb = XLSX.read(evt.target.result, {type:'array', cellDates:true});
+      // ⑦ 도로명주소변환 시트 있으면 자동 로드 (템플릿 xlsx 업로드 시 활용)
+      if (wb.SheetNames.includes('도로명주소변환')) {
+        const cnt = loadRoadConvertTable(wb);
+        if (cnt) showToast(`📋 도로명주소변환 테이블 ${cnt.toLocaleString()}건 로드`);
+      }
+      const ledgerSheets = ['잠실동','삼전동','아파트'].filter(s => wb.SheetNames.includes(s));
+      if (ledgerSheets.length) {
+        handleLedgerWorkbook(wb);
+      } else {
+        await handleGuTestFile(wb);
+      }
+    } catch (err) {
+      document.getElementById('test-status').innerHTML = `❌ ${err.message}`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ⑦ 도로명→지번 변환 테이블
+//    · 테스트 탭 또는 접수입력 탭에 도로명주소변환 시트 포함된 xlsx 업로드 시 자동 채워짐
+//    · 형식: { '잠실로 217': '본 19-1', '삼전로8길 22': '삼 123-4', ... }
+// ═══════════════════════════════════════════════════════════════
+let ROAD_JIBUN_MAP = {};
+
+// 템플릿 xlsx의 도로명주소변환 시트 → ROAD_JIBUN_MAP 로드
+function loadRoadConvertTable(wb) {
+  if (!wb.SheetNames.includes('도로명주소변환')) return 0;
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['도로명주소변환'], {header:1, defval:''});
+  let cnt = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    // 컬럼 A: 도로명주소, 컬럼 C(index 2): 지번주소  ← VLOOKUP 3번째 컬럼과 동일
+    const roadAddr  = String(r[0]||'').trim().replace(/\s+/g,' ');
+    const jibunAddr = String(r[2]||'').trim();
+    if (roadAddr && jibunAddr) { ROAD_JIBUN_MAP[roadAddr] = jibunAddr; cnt++; }
+  }
+  return cnt;
+}
+
+// 도로명주소 → '본/삼 XXX-XX' 변환
+// 단계: ① 정확 매칭 → ② 본번-부번 매칭 → ③ 본번만 매칭 → null(변환불가)
+function lookupRoadToJibun(rawRoadStr) {
+  const key = rawRoadStr.replace(/\s+/g,' ').trim();
+  if (ROAD_JIBUN_MAP[key]) return ROAD_JIBUN_MAP[key];
+  // OO로N길 M  또는  OO로 M  형식 분해
+  const m = key.match(/^(.+?(?:로|길)(?:\d+길)?)\s*(\d+)(?:-(\d+))?/);
+  if (m) {
+    const road = m[1].trim();
+    const bldFull = m[2] + (m[3] ? '-'+m[3] : '');
+    if (ROAD_JIBUN_MAP[`${road} ${bldFull}`]) return ROAD_JIBUN_MAP[`${road} ${bldFull}`];
+    if (ROAD_JIBUN_MAP[`${road} ${m[2]}`])    return ROAD_JIBUN_MAP[`${road} ${m[2]}`];
+  }
+  return null;
+}
+
+// ── 구청 raw 다운로드 포맷 파서 (테스트 탭) ──
+// ⑦ 도로명주소 카카오API 자동변환 / ⑧ 접수번호 오름차순 / ⑨ 수거일 자동계산
+async function handleGuTestFile(wb) {
+  const ws      = wb.Sheets[wb.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+  const uploadTime = new Date();
+
+  // 헤더 행 탐지
+  const hi = rawRows.findIndex(r => r.some(v => String(v).includes('성명') || String(v).includes('신청인')));
+  const dataRows = rawRows
+    .slice((hi >= 0 ? hi : 2) + 1)
+    .filter(r => String(r[1]||'').trim());
+
+  // ⑧ 접수번호 오름차순 정렬 (소스 파일은 보통 내림차순)
+  dataRows.sort((a, b) => seqNum(a[0]) - seqNum(b[0]));
+
+  const mergeMap = new Map();
+  let skipped = 0, dupCnt = 0, roadAddrCnt = 0;
+  const todayStr = uploadTime.toISOString().slice(0,10);
+
+  for (const r of dataRows) {
+    // ① 결제완료 건만 (미결 제외)
+    const paidVal = String(r[9]||'').trim();
+    if (!paidVal.includes('완료') || paidVal.includes('미결')) { skipped++; continue; }
+
+    const name        = String(r[1]||'').trim();
+    const aDate       = String(r[2]||'').trim().slice(0,10).replace(/\./g,'-');
+    const eDate       = String(r[3]||'').trim().slice(0,10).replace(/\./g,'-');
+    const rawPhone    = String(r[5]||'').replace(/[^0-9]/g,'').trim();
+    const rawAddrFull = String(r[6]||'').trim();
+    const detail      = String(r[7]||'').trim();
+    const rawItem     = String(r[8]||'').trim();
+
+    // 전화번호 포맷 (8자리 입력 → 010 자동 prefix)
+    let phone = rawPhone.startsWith('010') ? rawPhone.slice(0,11) : '010' + rawPhone.slice(0,8);
+    if (phone.length === 11) phone = phone.slice(0,3)+'-'+phone.slice(3,7)+'-'+phone.slice(7);
+
+    // 주소: 탭(tab) 기준 분리 — '송파구 잠실본동\t실제주소' 형식
+    const tabIdx    = rawAddrFull.indexOf('\t');
+    const beforeTab = tabIdx >= 0 ? rawAddrFull.slice(0, tabIdx).trim() : '';
+    const afterTab  = tabIdx >= 0 ? rawAddrFull.slice(tabIdx+1).trim() : rawAddrFull;
+    const dongHint  = beforeTab.includes('삼전') ? '삼전동'
+                    : beforeTab.includes('잠실') ? '잠실본동' : '';
+
+    // 아파트 → 지번 또는 동-호
+    const aptR = parseAptAddress(afterTab);
+    let _dong, addr, isRoadAddr = false;
+    if (aptR.isApt) {
+      _dong = aptR._dong;
+      addr  = aptR.aptAddr;
+    } else {
+      const pa = parseAddress(afterTab, dongHint);
+      _dong = pa.dong;
+      if (pa.isRoadAddr) {
+        // ⑦ 도로명주소: ROAD_JIBUN_MAP VLOOKUP 시도
+        const roadKey   = afterTab.split(/[\(（]/)[0].trim();
+        const converted = lookupRoadToJibun(roadKey);
+        if (converted) {
+          addr = converted;          // 변환 성공
+        } else {
+          addr = afterTab;           // 원문 보존 (수동 확인 대상)
+          isRoadAddr = true;
+          roadAddrCnt++;
+        }
+      } else {
+        addr = pa.formatted;
+      }
+    }
+
+    // ⑨ 수거일 자동계산 (업로드 시각 기준)
+    const is5 = is5Danji(_dong);
+    let pickup;
+    if (!eDate || eDate <= todayStr) {
+      // 배출일 ≤ 오늘 → 업로드 시각 기준 calcBasePickup
+      pickup = calcBasePickup(is5, uploadTime);
+    } else {
+      // 배출일 > 오늘 → 배출일 +1 영업일
+      pickup = nextWorkday(addDays(new Date(eDate), 1), is5).toISOString().slice(0,10);
+    }
+
+    // 품목 파싱
+    const parsedItems = parseGuItems(rawItem);
+    const itemsTotal  = parsedItems.reduce((s, it) => s + it._price, 0);
+
+    // 병합 키: 성명+전화+주소+수거일 동일 → 같은 영수증
+    const mk = `${name}\x00${phone}\x00${addr}\x00${pickup}`;
+
+    if (mergeMap.has(mk)) {
+      const en = mergeMap.get(mk);
+      parsedItems.forEach(it => en._items.push(it));
+      en._total += itemsTotal;
+      if (aDate && aDate < en.접수일자) { en.접수일자 = aDate; en.입금일자 = aDate; }
+    } else {
+      // Firebase 기존 데이터 중복 체크
+      let isDup = false;
+      for (const k in receipts) {
+        const ex = receipts[k];
+        if (ex.성명===name && ex.주소===addr && ex.전화번호===phone && ex.수거일자===pickup) {
+          isDup = true; break;
+        }
+      }
+      if (isDup) { dupCnt++; continue; }
+
+      mergeMap.set(mk, {
+        _dong, _seq: seqNum(r[0]),
+        접수일자: aDate, 성명: name, 주소: addr, 전화번호: phone,
+        수거일자: pickup, 입금일자: aDate,
+        비고: detail ? `${detail}\n(인)` : '(인)',
+        _items: [...parsedItems],
+        _total: itemsTotal,
+        _key: Date.now() + seqNum(r[0]),
+        _isRoadAddr: isRoadAddr,
+      });
+    }
+  }
+
+  // ── ⑦ 도로명주소 카카오 API 변환 ──
+  const roadEntries = [...mergeMap.values()].filter(m => m._isRoadAddr);
+  if (roadEntries.length) {
+    document.getElementById('test-status').innerHTML =
+      `<div style="color:#1a56db;font-weight:700;">⏳ 도로명주소 변환 중… (0/${roadEntries.length}건)</div>`;
+    for (let i = 0; i < roadEntries.length; i++) {
+      const m = roadEntries[i];
+      document.getElementById('test-status').innerHTML =
+        `<div style="color:#1a56db;font-weight:700;">⏳ 도로명주소 변환 중… (${i+1}/${roadEntries.length}건)<br>${m.주소}</div>`;
+      const converted = await kakaoAddrToJibun(m.주소);
+      if (converted) {
+        m.주소 = converted;
+        m._isRoadAddr = false;
+        roadAddrCnt--;
+      }
+    }
+  }
+
+  // window.testMerged에 저장용 레코드 생성
+  const records = [...mergeMap.values()];
+  window.ledgerParsed = null;
+  window.testMerged = records.map(m => {
+    const items    = m._items;
+    const allFree  = items.length > 0 && items.every(it => it._price === 0);
+    const totalStr = allFree ? '무상' : (m._total ? m._total.toLocaleString()+'원' : '');
+    const rec = {
+      _source:'구청', _dong:m._dong, 접수자:'김',
+      접수일자:m.접수일자, 성명:m.성명, 주소:m.주소, 전화번호:m.전화번호,
+      수거일자:m.수거일자, 총금액:totalStr, 입금일자:m.입금일자, 비고:m.비고,
+      _items:items, _created:m._key,
+    };
+    // 품목 필드 flatten (최대 10개)
+    items.slice(0,10).forEach((it,i)=>{ rec[`품목${i+1}`]=it.품목; rec[`금액${i+1}`]=it.금액; });
+    rec.품목1=items[0]?.품목||''; rec.금액1=items[0]?.금액||'';
+    rec.품목2=items[1]?.품목||''; rec.금액2=items[1]?.금액||'';
+    if (m._isRoadAddr) rec._addrFlag = 'road'; // 도로명주소 플래그 (UI 표시용)
+    return rec;
+  });
+
+  // ── 결과 HTML 생성 ──
+  const days = ['일','월','화','수','목','금','토'];
+  let html = `<div style="font-size:13px;font-weight:700;padding:10px 0;">`;
+  html += `✅ 구청 파싱 완료: 결제완료 <b>${records.length}건</b>`;
+  html += ` / 미결제 ${skipped}건 제외`;
+  if (dupCnt)        html += ` / 기존중복 ${dupCnt}건 제외`;
+  if (roadAddrCnt)   html += `<br><span style="color:#ea580c;">⚠️ 도로명주소 ${roadAddrCnt}건 — 지번 수동 확인 필요
+    <span style="font-size:11px;font-weight:400;">(템플릿 xlsx 업로드 시 자동 변환)</span></span>`;
+  html += `</div>`;
+
+  if (records.length) {
+    html += `<button class="tb-btn primary" onclick="saveTestDataToFirebase()"
+      style="width:100%;margin-top:4px;margin-bottom:10px;">
+      💾 Firebase 저장 (${records.length}건 접수목록 반영)</button>`;
+
+    // 프리뷰 테이블
+    html += `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#1a56db;color:#fff;">
+        <th style="padding:6px 10px;text-align:left;white-space:nowrap;">연번</th>
+        <th style="padding:6px 10px;text-align:left;white-space:nowrap;">성명</th>
+        <th style="padding:6px 10px;text-align:left;">주소</th>
+        <th style="padding:6px 10px;text-align:left;white-space:nowrap;">동</th>
+        <th style="padding:6px 10px;text-align:left;white-space:nowrap;">수거일</th>
+        <th style="padding:6px 10px;text-align:left;white-space:nowrap;">총금액</th>
+        <th style="padding:6px 10px;text-align:left;">품목</th>
+      </tr></thead><tbody>`;
+
+    records.forEach((m, i) => {
+      const tot     = window.testMerged[i].총금액;
+      const rowBg   = m._isRoadAddr ? 'background:#fff7ed;' : (i%2===0?'':'background:#f9fafb;');
+      const addrTxt = m._isRoadAddr
+        ? `<span style="color:#ea580c;" title="도로명주소 — 지번 변환 필요">⚠️ ${m.주소}</span>`
+        : m.주소;
+      const pickupDate = new Date(m.수거일자);
+      const pickupStr  = `${m.수거일자.slice(5)} (${days[pickupDate.getDay()]})`;
+      // 품목 표시: 무상이면 '무상' fallback
+      const itemList = m._items.filter(it => it.품목);
+      const itemNames = itemList.length
+        ? itemList.slice(0,3).map(it => it.품목).join(', ') + (itemList.length>3?'…':'')
+        : (window.testMerged[i].총금액 === '무상' ? '(무상)' : '-');
+      html += `<tr style="${rowBg}">
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${i+1}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;white-space:nowrap;">${m.성명}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${addrTxt}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;white-space:nowrap;">${m._dong}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;white-space:nowrap;">${pickupStr}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;white-space:nowrap;">${tot||'-'}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;">${itemNames}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  document.getElementById('test-status').innerHTML = html;
+}
+
+function saveTestDataToFirebase() {
+  if (!window.testMerged || !window.testMerged.length) return void alert('저장할 데이터가 없습니다!');
+  const updates = {};
+  const cnt = window.testMerged.length;
+  window.testMerged.forEach((r, i) => {
+    // _addrFlag는 Firebase에 저장하지 않음
+    const { _addrFlag, ...saveRec } = r;
+    updates[`${DB_RECEIPT}/${saveRec._created || (Date.now()+i)}`] = saveRec;
+  });
+  showLoading('저장 중…');
+  db.ref().update(updates)
+    .then(() => {
+      hideLoading();
+      showToast(`✅ ${cnt}건 저장 완료`);
+      document.getElementById('test-status').innerHTML +=
+        `<br><strong style="color:green;">✅ ${cnt}건 저장 완료!</strong>`;
+      window.testMerged = null;
+    })
+    .catch(e => { hideLoading(); alert('실패: ' + e.message); });
+}
+
+// ── 정섭 원장(접수장부) 양식 파서 ──
+const APT_TITLE_RULES = [
+  [/5단지/, '5단지'],
+  [/우성\s*4차/, '우성4차'],
+  [/삼전\s*현대/, '삼전현대'],
+  [/잠실\s*현대/, '잠실현대'],
+  [/트리지움/, '트리지움'],
+  [/레이크\s*(펠리스|팰리스|팰이스|펠이스)/, '레이크팰리스'],
+  [/가락/, '가락시장'],
+];
+function mapAptTitle(raw) {
+  const s = String(raw||'').replace(/APT$/i,'').trim();
+  for (const [re,dong] of APT_TITLE_RULES) if (re.test(s)) return dong;
+  return s;
+}
+function xlsxDateToStr(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    const y=v.getFullYear(), m=String(v.getMonth()+1).padStart(2,'0'), d=String(v.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  // Excel 일련번호 (숫자) → 날짜 변환
+  if (typeof v === 'number' && v > 0) {
+    const epoch = new Date(Math.round((v - 25569) * 86400 * 1000));
+    const y=epoch.getUTCFullYear(), m=String(epoch.getUTCMonth()+1).padStart(2,'0'), d=String(epoch.getUTCDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  const mm = String(v).trim().match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  return mm ? `${mm[1]}-${mm[2].padStart(2,'0')}-${mm[3].padStart(2,'0')}` : '';
+}
+function ledgerPhone(v) {
+  let s = String(v||'').replace(/[^0-9]/g,'');
+  if (!s) return '';
+  if (!s.startsWith('010')) s = '010' + s.slice(0,8);
+  s = s.slice(0,11);
+  return s.length===11 ? s.slice(0,3)+'-'+s.slice(3,7)+'-'+s.slice(7) : s;
+}
+function ledgerItem(name, amtRaw) {
+  name = String(name||'').trim();
+  if (!name) return null;
+  if (amtRaw === '' || amtRaw == null) return null;
+  const isFree = amtRaw==='무상' || amtRaw===0 || amtRaw==='0';
+  const n = isFree ? 0 : (typeof amtRaw==='number' ? amtRaw : (parseInt(String(amtRaw).replace(/[^0-9]/g,''))||0));
+  return { 품목:name, 금액: isFree?'무상':n.toLocaleString()+'원', 개수:'', _price:n };
+}
+function parseLedgerEntries(rows) {
+  const entries = []; let cur = null;
+  for (const row of rows) {
+    const seq = row[0];
+    const isNewEntry = seq!=='' && seq!=null && !isNaN(seq);
+    const hasItemCell = row[6] || row[8] || row[10];
+    if (isNewEntry) {
+      if (cur) entries.push(cur);
+      cur = {
+        접수자: String(row[1]||'김').trim() || '김',
+        접수일자: xlsxDateToStr(row[2]),
+        주소: String(row[3]||'').trim(),
+        성명: String(row[4]||'').trim(),
+        전화번호: ledgerPhone(row[5]),
+        items: [],
+        총금액raw: row[12],
+        입금일자: xlsxDateToStr(row[13]),
+        수거일자: xlsxDateToStr(row[14]),
+        비고: String(row[16]||'').trim(),
+      };
+      [[6,7],[8,9],[10,11]].forEach(([ni,ai]) => { const it=ledgerItem(row[ni],row[ai]); if (it) cur.items.push(it); });
+    } else if (cur && hasItemCell) {
+      [[6,7],[8,9],[10,11]].forEach(([ni,ai]) => {
+        const nm = String(row[ni]||'').trim();
+        if (!nm) return;
+        const it = ledgerItem(nm, row[ai]);
+        if (it) cur.items.push(it);
+        else cur.비고 = cur.비고 ? `${cur.비고} / ${nm}` : nm;
+      });
+    }
+  }
+  if (cur) entries.push(cur);
+  return entries.filter(e => e.성명 && e.주소 && e.주소 !== '#N/A');
+}
+function entryToReceiptRow(e, _dong) {
+  const sumPrice = e.items.reduce((s,it)=>s+it._price,0);
+  const allFree = e.items.length>0 && e.items.every(it=>it._price===0);
+  let totalStr;
+  if (allFree) totalStr = '무상';
+  else if (typeof e.총금액raw==='number' && e.총금액raw>0) totalStr = e.총금액raw.toLocaleString()+'원';
+  else if (sumPrice>0) totalStr = sumPrice.toLocaleString()+'원';
+  else totalStr = e.총금액raw==='무상' ? '무상' : '';
+  return {
+    _source:'원장업로드', _dong,
+    접수자: e.접수자||'김', 접수일자:e.접수일자, 성명:e.성명, 주소:e.주소, 전화번호:e.전화번호,
+    수거일자:e.수거일자, 총금액:totalStr,
+    입금일자: e.입금일자 || '',
+    비고: e.비고 || '',
+    품목1:e.items[0]?.품목||'', 금액1:e.items[0]?.금액||'',
+    품목2:e.items[1]?.품목||'', 금액2:e.items[1]?.금액||'',
+    품목3:e.items[2]?.품목||'', 금액3:e.items[2]?.금액||'',
+    _items:e.items, _created: Date.now() + Math.floor(Math.random()*1000),
+  };
+}
+function parseDongSheet(rows2D, _dong) {
+  const hIdx = rows2D.findIndex(r => String(r[0]||'')==='연번');
+  const dataRows = hIdx>=0 ? rows2D.slice(hIdx+1) : rows2D;
+  return parseLedgerEntries(dataRows).map(e => entryToReceiptRow(e, _dong));
+}
+function parseAptSheet(rows2D) {
+  const out = []; let curDong = null, buf = [];
+  const flush = () => {
+    if (curDong && buf.length) parseLedgerEntries(buf).forEach(e => out.push(entryToReceiptRow(e, curDong)));
+    buf = [];
+  };
+  for (const row of rows2D) {
+    const c0 = String(row[0]||'');
+    const titleM = c0.match(/현황\s*\(\s*([^)]+?)\s*\)/);
+    if (titleM) { flush(); curDong = mapAptTitle(titleM[1]); continue; }
+    if (c0 === '연번') continue;
+    if (/총\s*금액/.test(c0)) { flush(); continue; }
+    buf.push(row);
+  }
+  flush();
+  return out;
+}
+function parseSpecialSheet(rows2D) {
+  // 특수마대수거지시서: 연번/접수일자/주소/전화번호/수거일/비고 (성명 없음)
+  const hIdx = rows2D.findIndex(r => /연번/.test(String(r[0]||'')) || /접수/.test(String(r[1]||'')));
+  const dataRows = hIdx >= 0 ? rows2D.slice(hIdx+1) : rows2D;
+  const entries = [];
+  for (const row of dataRows) {
+    const seq = row[0];
+    if (seq==='' || seq==null || isNaN(Number(seq))) continue;
+    const 주소 = String(row[2]||'').trim();
+    if (!주소) continue;
+    const 비고raw = String(row[5]||'').trim();
+    const cntM = 비고raw.match(/(\d+)개/);
+    const cnt  = cntM ? parseInt(cntM[1]) : 1;
+    const 품목name = cnt >= 2
+      ? `특수마대${CIRCLED_NUMS[Math.min(cnt,20)-1]||''}` : '특수마대';
+    entries.push({
+      _source:'원장업로드', _dong:'특수마대',
+      접수자:'김',
+      접수일자: xlsxDateToStr(row[1]),
+      성명: String(row[3]||'').trim() || '',
+      주소,
+      전화번호: ledgerPhone(row[4]),
+      수거일자: xlsxDateToStr(row[5]) || '',
+      총금액:'특수',
+      입금일자:'',
+      비고: 비고raw,
+      품목1: 품목name, 금액1:'특수',
+      _items:[{ 품목: 품목name, 금액:'특수', 개수: cnt>1?`${cnt}개`:'', _price:0 }],
+      _created: 0,  // handleLedgerWorkbook에서 재할당
+    });
+  }
+  return entries;
+}
+
+function handleLedgerWorkbook(wb) {
+  let all = [];
+  if (wb.SheetNames.includes('잠실동'))   all = all.concat(parseDongSheet(XLSX.utils.sheet_to_json(wb.Sheets['잠실동'],   {header:1, defval:'', raw:true}), '잠실본동'));
+  if (wb.SheetNames.includes('삼전동'))   all = all.concat(parseDongSheet(XLSX.utils.sheet_to_json(wb.Sheets['삼전동'],   {header:1, defval:'', raw:true}), '삼전동'));
+  if (wb.SheetNames.includes('아파트'))   all = all.concat(parseAptSheet (XLSX.utils.sheet_to_json(wb.Sheets['아파트'],   {header:1, defval:'', raw:true})));
+  if (wb.SheetNames.includes('특수마대')) all = all.concat(parseSpecialSheet(XLSX.utils.sheet_to_json(wb.Sheets['특수마대'], {header:1, defval:'', raw:true})));
+  const fresh = all.filter(r => {
+    for (const k in receipts) {
+      const ex = receipts[k];
+      if (ex.성명===r.성명 && ex.주소===r.주소 && ex.전화번호===r.전화번호 && ex.수거일자===r.수거일자) return false;
+    }
+    return true;
+  });
+  // ② 접수 순서 보존: 파일 순서대로 _created 오름차순 부여
+  const base = Date.now();
+  fresh.forEach((r, i) => { r._created = base + i; });
+
+  window.testMerged = null;
+  window.ledgerParsed = fresh;
+  const byDong = {};
+  fresh.forEach(r => { byDong[r._dong] = (byDong[r._dong]||0) + 1; });
+  const summary = Object.entries(byDong).map(([d,n]) => `${d} ${n}건`).join(' / ') || '(신규 없음)';
+  const skipped = all.length - fresh.length;
+  document.getElementById('test-status').innerHTML =
+    `✅ 원장 파싱 완료: 총 ${all.length}건 (신규 ${fresh.length}건${skipped?`, 중복스킵 ${skipped}건`:''})<br>${summary}<br>` +
+    (fresh.length ? `<button class="tb-btn primary" onclick="saveLedgerToFirebase()" style="width:100%;margin-top:8px;">💾 Firebase 저장 (접수목록 반영)</button>` : '');
+}
+function saveLedgerToFirebase() {
+  if (!window.ledgerParsed || !window.ledgerParsed.length) return void alert('저장할 신규 데이터가 없습니다!');
+  const updates = {};
+  window.ledgerParsed.forEach(r => { updates[`${DB_RECEIPT}/${r._created}`] = r; });
+  const cnt = window.ledgerParsed.length;
+  showLoading('저장 중…');
+  db.ref().update(updates)
+    .then(() => { hideLoading(); showToast(`✅ ${cnt}건 저장 완료`); document.getElementById('test-status').innerHTML += `<br><strong style="color:green;">✅ 저장 완료!</strong>`; window.ledgerParsed = null; })
+    .catch(e => { hideLoading(); alert('실패: '+e.message); });
+}
+
+function formatPhone(e) {
+  const raw = e.target.value.replace(/[^0-9]/g, '');
+  let val;
+
+  if (raw.startsWith('010')) {
+    // 010 포함 입력: 최대 11자리 유지
+    val = raw.slice(0, 11);
+  } else {
+    // 010 제외 입력: 앞 8자리만 취하고 010 prepend
+    val = '010' + raw.slice(0, 8);
+  }
+
+  if (val.length === 11) {
+    val = val.slice(0, 3) + '-' + val.slice(3, 7) + '-' + val.slice(7);
+  }
+
+  e.target.value = val;
+}
+</script>
+
+</body>
+</html>

@@ -1,8 +1,8 @@
 {
-  "name": "디지털원장",
+  "name": "본에코디지털원장",
   "short_name": "디지털원장",
-  "description": "송파구 대형폐기물 디지털 원장",
-  "start_url": "./index.html",
+  "description": "대형폐기물 디지털 원장 웹앱",
+  "start_url": "/digit-wonjang/index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

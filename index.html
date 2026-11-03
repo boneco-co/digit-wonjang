@@ -103,6 +103,10 @@ body{font-family:var(--font);background:#f0f4f8;color:var(--text);min-height:100
 .wf-btn.on .wf-n{background:#ffffff33;}
 .wf-btn.warn{border-color:#f59e0b;color:#b45309;}
 .wf-btn.warn.on{background:#f59e0b;border-color:#f59e0b;color:#fff;}
+/* [11_3] 안 본 확인필요 건 — 로그인한 사람이 확인필요 목록을 열 때까지 깜빡임 */
+@keyframes needBlink{0%,100%{background:#fff7ed;box-shadow:0 0 0 0 rgba(245,158,11,.0)}50%{background:#f59e0b;color:#fff;box-shadow:0 0 0 4px rgba(245,158,11,.35)}}
+.need-blink{animation:needBlink 1s steps(1,end) infinite;}
+.nav-tab.need-blink{border-radius:8px;}
 
 /* [8_24] 목록 검색 결과 강조 — 반짝이다 사라지는 대신, 찾는 동안 계속 색이 남아 있게.
    background 를 !important 로 덮어야 인라인 경고색(노란 배경)이 있어도 보인다. */
@@ -661,7 +665,7 @@ body{background:#eaf2fb;}
     <span>디지털 원장</span>
     <img src="data:image/png;base64,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" alt="본에코(주)" class="hdr-logo">
     <span>본에코(주)</span>
-    <span id="build-tag" style="font-size:10px;font-weight:500;opacity:.6;margin-left:6px;align-self:flex-end;">v1102a</span>
+    <span id="build-tag" style="font-size:10px;font-weight:500;opacity:.6;margin-left:6px;align-self:flex-end;">v1103a</span>
   </div>
   <div style="display:flex;align-items:flex-end;gap:12px;">
     <!-- [10_28] 전환 버튼 — 민원처리앱을 새 탭(이름 고정)으로 연다. 원장 화면은 그대로 둔다 -->
@@ -5390,6 +5394,24 @@ async function parseBbaegi(wb, filename, uploadTime, acceptor) {
   // ── 주소 정규화 ──
   // 빼기앱 주소는 도로명 원문("서울 송파구 백제고분로22길 19-10 더트라이앵글 203호").
   // 구청 파싱과 동일한 순서로 처리: ① 아파트 → ② 지번 → ③ 도로명 변환(고정표·변환표·건물표·카카오API)
+  // [11_3] 빼기 주소 — ① 동·호수가 있으면 주소에 꼭 넣는다 ② 괄호 속 상가·건물명은 단지명으로 쓰지 않는다
+  //   예: "백제고분로18길 26 (우성상가) 103동307호" → 예전엔 지번 '본 320'만 남고 동·호가 빠졌다
+  //       → '본 320 103동 307호' + 주소확인 (320은 우성4차 부지라 사람이 확인)
+  const stripParen = s => String(s || '').replace(/\s*[（(][^)）]*[)）]/g, ' ').replace(/\s+/g, ' ').trim();
+  function bbaegiDongHo(s) {
+    const t = stripParen(s);
+    let m = t.match(/(\d{1,4})\s*동\s*(\d{1,5})\s*호/);
+    if (m) return `${m[1]}동 ${m[2]}호`;
+    m = t.match(/(?:^|[^\d-])(\d{1,5})\s*호(?!\d|라인)/);
+    if (m) return `${m[1]}호`;
+    return '';
+  }
+  function withDongHo(addr, raw) {
+    const dh = bbaegiDongHo(raw);
+    if (!dh) return addr;
+    const flat = s => String(s || '').replace(/\s+/g, '');
+    return flat(addr).includes(flat(dh)) ? addr : `${String(addr || '').trim()} ${dh}`;
+  }
   async function resolveBbaegiAddr(g) {
     const raw  = g.rawAddr || '';
     const a0   = raw.replace(/^\s*(서울(특별시)?)?\s*송파구\s*/, '').trim();
@@ -5435,8 +5457,10 @@ async function parseBbaegi(wb, filename, uploadTime, acceptor) {
     //     그렇지 않으면 "백제고분로7길 42 101동 1006호"(빌라) 가 동번호만 보고 5단지로 오판된다.
     // [8_29] 주소에 단지명만 있고 동호가 비고에 있을 때: 주소+비고를 같이 파싱
     const APT_NAME_RE = /주공|5단지|올림픽\s*선수|레이크\s*팰|트리지움|우성\s*(4차|아파트)|현대\s*아파트|잠실\s*현대|삼전\s*현대/;
-    if (g.dong === '아파트' || APT_NAME_RE.test(a) || APT_NAME_RE.test(note)) {
-      const apt = parseAptAddress((a + ' ' + note).trim(), hint);
+    // [11_3] 괄호 안(우성상가 등)은 단지명 판정에 쓰지 않는다
+    const aNP = stripParen(a);
+    if (g.dong === '아파트' || APT_NAME_RE.test(aNP) || APT_NAME_RE.test(note)) {
+      const apt = parseAptAddress((aNP + ' ' + note).trim(), stripParen(hint));
       if (apt.isApt) {
         if (isDongHo(apt.aptAddr))
           return { _dong: apt._dong, addr: apt.aptAddr, warn: !!apt._addrWarn };
@@ -5445,28 +5469,31 @@ async function parseBbaegi(wb, filename, uploadTime, acceptor) {
         return { _dong: apt._dong, addr: apt.aptAddr, warn: true };
       }
       // 단지명만 잡히고 parse 실패 시에도 비고 동호가 있으면 단지 추정
-      if (noteDongHo && APT_NAME_RE.test(a + note)) {
+      if (noteDongHo && APT_NAME_RE.test(aNP + note)) {
+        const an = aNP + note;
         let dongGuess = '트리지움';
-        if (/레이크/.test(a+note)) dongGuess = '레이크팰리스';
-        else if (/우성/.test(a+note)) dongGuess = '우성4차';
-        else if (/잠실\s*현대|현대\s*아파트/.test(a+note) && !/삼전/.test(a+note)) dongGuess = '잠실현대';
-        else if (/삼전\s*현대/.test(a+note)) dongGuess = '삼전현대';
-        else if (/5단지|주공|올림픽/.test(a+note)) dongGuess = '5단지';
-        else if (/트리지움/.test(a+note)) dongGuess = '트리지움';
+        if (/레이크/.test(an)) dongGuess = '레이크팰리스';
+        else if (/우성/.test(an)) dongGuess = '우성4차';
+        else if (/잠실\s*현대|현대\s*아파트/.test(an) && !/삼전/.test(an)) dongGuess = '잠실현대';
+        else if (/삼전\s*현대/.test(an)) dongGuess = '삼전현대';
+        else if (/5단지|주공|올림픽/.test(an)) dongGuess = '5단지';
+        else if (/트리지움/.test(an)) dongGuess = '트리지움';
         return { _dong: dongGuess, addr: noteDongHo, warn: false };
       }
     }
 
     // ② 지번주소면 '본/삼 XXX-XX' 로 즉시 변환
+    // [11_3] 단지 부지 지번(본 320 = 우성4차 등)인데 단지 정문 도로명이 아니면(상가·다른 건물) 사람이 확인
+    const aptLot = s => { const m = String(s || '').match(/^([본삼])\s*(\d+)/); return !!(m && aptByJibun(m[1], m[2])); };
     const pa = parseAddress(a, g.dong);
-    if (!pa.isRoadAddr) return { _dong: pa.dong || g.dong, addr: pa.formatted, warn: !!pa.addrWarn };
+    if (!pa.isRoadAddr) return { _dong: pa.dong || g.dong, addr: withDongHo(pa.formatted, a), warn: !!pa.addrWarn || aptLot(pa.formatted) };
 
     // ③ 도로명주소 변환
     const roadKey = roadKeyOf(a);          // ★ 호수·건물명 제거 후 검색
     let conv = lookupRoadToJibun(roadKey) || lookupBldgJibun(raw);
     if (!conv) conv = await kakaoAddrToJibun(roadKey);
     if (conv) {
-      return { _dong: conv.startsWith('삼') ? '삼전동' : '잠실본동', addr: conv, warn: false };
+      return { _dong: conv.startsWith('삼') ? '삼전동' : '잠실본동', addr: withDongHo(conv, a), warn: aptLot(conv) };
     }
     return { _dong: pa.dong || g.dong, addr: a, warn: true };   // 변환 실패 → 원문 보존 + 주소확인
   }
@@ -8182,15 +8209,33 @@ function renderWorkFilter(){
   // [8_26] "미수거" 버튼 제거 — 품목 일부 없음으로 완료 처리한 건은 이제 처리완료로
   //   바로 넘어가므로(위 workOf 수정), 이 버튼이 확인필요와 사실상 같은 건을 중복
   //   표시하고 있었다. 어떤 품목이 없었는지는 처리완료 건 상세에서 그대로 보인다.
+  // 확인필요 목록을 보고 있는 중에 새 건이 오면 바로 본 것으로
+  { const tl = document.getElementById('tab-list'); if (WORK_FILTER === 'need' && tl && tl.classList.contains('on') && !document.hidden) needMarkSeen(); }
+  const unseen = needUnseenIds();
   box.innerHTML =
       btn('all','전체')
-    + btn('need','🟠 확인필요','warn')
+    + btn('need','🟠 확인필요','warn' + (unseen.length ? ' need-blink' : ''))
     + btn('done','✅ 처리완료')
     + btn('none','⬜ 미처리')
     + btn('refund','💰 환불')
     + btn('cancel','🚫 취소');
+  // 접수목록 탭 버튼도 같이 깜빡 (다른 탭을 보고 있어도 알 수 있게)
+  const nav = document.querySelector(`.nav-tab[onclick*="showTab('list'"]`);
+  if (nav) { nav.classList.toggle('need-blink', unseen.length > 0); nav.title = unseen.length ? `🟠 안 본 확인필요 ${unseen.length}건 — [확인필요]를 눌러 보세요` : ''; }
+}
+// [11_3] 확인필요 '본 건' 기억 — 로그인한 사람(이름)별로 이 PC에 저장. 그 사람이 확인필요 목록을 열면 그 사람 화면만 꺼진다.
+//   새 확인필요 건이 생기면 다시 깜빡인다. (원장 자료에는 아무것도 쓰지 않음)
+function needSeenKey(){ return 'need_seen_' + (getOpName() || '_'); }
+function needSeenGet(){ try { const v = JSON.parse(lsGet(needSeenKey(), '{}')); return v && typeof v === 'object' ? v : {}; } catch(e){ return {}; } }
+function needIds(){ return Object.entries(receipts || {}).filter(([, r]) => r && matchFilter(r, 'need')).map(([k]) => k); }
+function needUnseenIds(){ const s = needSeenGet(); return needIds().filter(k => !s[k]); }
+function needMarkSeen(){
+  const ids = needIds(), old = needSeenGet(), now = Date.now(), v = {};
+  ids.forEach(k => { v[k] = old[k] || now; });   // 지금 확인필요인 건만 남긴다 (저장 크기 정리)
+  lsSet(needSeenKey(), JSON.stringify(v));
 }
 function setWorkFilter(k){
+  if (k === 'need') needMarkSeen();   // [11_3] 열어 봤으니 이 사람 화면은 깜빡임 끔
   WORK_FILTER = k;
   STAT_FILTER = 'none';   // [8_25] 다른 축(작업상태) 필터를 누르면 통계 카드 필터는 해제
   renderTable();

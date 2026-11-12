@@ -15121,18 +15121,8 @@ function closeAlreadyCollectedPanel() {
   if (box) box.style.display = 'none';
   _alreadyMode = 'new';
 }
-// [11_12] 저장 버튼이 아무 반응 없이 끝나지 않게 — 오류는 화면에 알리고, 누르는 동안 '저장 중…', 두 번 눌림 막기
-let _alreadyBusy = false;
 async function submitAlreadyCollected() {
-  if (_alreadyBusy) return;
-  const okB = document.getElementById('em-already-ok'), okT = okB ? okB.textContent : '';
-  _alreadyBusy = true; if (okB) { okB.disabled = true; okB.textContent = '⏳ 저장 중…'; }
-  try { return await _submitAlreadyCollected(); }
-  catch (e) { console.error('[수거내역 저장]', e); showToast('❌ 저장하지 못했습니다 — ' + (e && e.message || e)); }
-  finally { _alreadyBusy = false; if (okB) { okB.disabled = false; if (okB.textContent === '⏳ 저장 중…') okB.textContent = okT; } }
-}
-async function _submitAlreadyCollected() {
-  if (!(await saveFormFirst())) { showToast('⚠️ 위 칸에 고친 내용을 먼저 저장하지 못해 멈췄습니다 — 위 칸을 확인해 주세요'); return; }   // [9_23]
+  if (!(await saveFormFirst())) return;   // [9_23]
   const rec = receipts[editTargetId];
   if (!rec) return;
   const items = getRecordItems(rec);

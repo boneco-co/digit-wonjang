@@ -15146,8 +15146,10 @@ function openAlreadyCollectedPanel(mode) {
   if (tEl) tEl.textContent = tx.t; if (dEl) dEl.innerHTML = tx.d; if (bEl) { bEl.textContent = tx.b; bEl.disabled = false; bEl.style.opacity = ''; }   // [11_12] 늘 눌리게
   if (_alreadyMode === 'edit') {   // 지금 기록으로 채운다
     const wk = Array.isArray(rec._work품목) ? rec._work품목 : [];
-    box.querySelectorAll('.em-already-qty').forEach(inp => { const v = wk[+inp.dataset.idx]; inp.value = v === true ? inp.dataset.full : (typeof v === 'number' ? v : 0); });
-    box.querySelectorAll('.em-already-chk').forEach(c => { const v = wk[+c.dataset.idx]; c.checked = (v === true || (typeof v === 'number' && v > 0)); syncAlreadyChkLabel(+c.dataset.idx); });
+    // [11_13] 전체수거(done)인데 품목별 기록이 없는 건(수거앱 완료 등)은 전부 수거한 것으로 채운다 — 예전엔 전부 미수거로 보여 고칠 수 없었다
+    const allDone = rec._work상태 === 'done', none = v => v === null || v === undefined;
+    box.querySelectorAll('.em-already-qty').forEach(inp => { const v = wk[+inp.dataset.idx]; inp.value = (v === true || (allDone && none(v))) ? inp.dataset.full : (typeof v === 'number' ? v : 0); });
+    box.querySelectorAll('.em-already-chk').forEach(c => { const v = wk[+c.dataset.idx]; c.checked = (v === true || (typeof v === 'number' && v > 0) || (allDone && none(v))); syncAlreadyChkLabel(+c.dataset.idx); });
   }
   document.getElementById('em-already-panel').style.display = '';
 }

@@ -14230,6 +14230,7 @@ function openEditModal(id) {
   document.querySelectorAll('#edit-modal button, [id^="em-"] button').forEach(b => {
     const t = (b.textContent || '') + (b.getAttribute('onclick') || '');
     if (b.id === 'em-save-close') return;   // [9_29] 저장 후 닫기는 잠긴 건에서도 눌려야 한다(닫기 역할)
+    if (b.closest('#em-already-panel')) return;   // [11_12] 수거내역 수정 창의 [고친 내용으로 저장]은 잠긴 건에서도 눌려야 한다 (글자에 '저장'이 들어가 같이 잠기던 문제)
     if (/저장|입금처리|입금취소|전송취소|작업전송|재전송|saveEdit|editPay|editUnsend|editResend|editResendAppOnly|deleteOrCancel|cancelSingle/.test(t + (b.onclick || ''))) {
       b.disabled = locked;
       b.style.opacity = locked ? '0.45' : '';
@@ -15100,7 +15101,7 @@ function openAlreadyCollectedPanel(mode) {
     + `<div style="font-size:13px;color:#5b21b6;margin-top:10px;font-weight:800;">${_ALREADY_TXT[_alreadyMode].f}</div>`;
   const tx = _ALREADY_TXT[_alreadyMode];
   const tEl = document.getElementById('em-already-title'), dEl = document.getElementById('em-already-desc'), bEl = document.getElementById('em-already-ok');
-  if (tEl) tEl.textContent = tx.t; if (dEl) dEl.innerHTML = tx.d; if (bEl) bEl.textContent = tx.b;
+  if (tEl) tEl.textContent = tx.t; if (dEl) dEl.innerHTML = tx.d; if (bEl) { bEl.textContent = tx.b; bEl.disabled = false; bEl.style.opacity = ''; }   // [11_12] 늘 눌리게
   if (_alreadyMode === 'edit') {   // 지금 기록으로 채운다
     const wk = Array.isArray(rec._work품목) ? rec._work품목 : [];
     box.querySelectorAll('.em-already-qty').forEach(inp => { const v = wk[+inp.dataset.idx]; inp.value = v === true ? inp.dataset.full : (typeof v === 'number' ? v : 0); });

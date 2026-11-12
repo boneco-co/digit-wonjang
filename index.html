@@ -15062,12 +15062,14 @@ function keepEmBoxInView() {
 
 // [10_15a] mode 'edit' = 완료 취소 — 지금 수거 기록이 체크된 채로 열고, 품목별로 수거/미수거·개수를 고쳐 저장한다
 let _alreadyMode = 'new';
+let _swapPick = {};   // [11_12] 품목변경: 미수거 품목 idx → 고른 가격표 항목 (수거내역 수정 창에서만)
 const _ALREADY_TXT = {
   new:  { t: '📦 수거한 품목만 ✅로 두세요', d: '<b>수거한 품목</b>에만 체크해 두세요. 미수거한 품목은 체크를 <b>풀어</b> 주세요. (여러 개짜리는 수거한 개수를 숫자로)', b: '✅ 수거한 품목으로 완료 처리', f: '수거한 것만 ✅로 두고 아래 [수거한 품목으로 완료 처리]를 누르세요.' },
   edit: { t: '✏️ 수거내역 수정 — 품목별로 수거 / 미수거를 고치세요', d: '지금 기록이 그대로 체크돼 있습니다. <b>안 가져간 품목은 체크를 풀고</b>, 여러 개짜리는 실제 수거한 개수로 고치세요.<br>저장하면 미수거 품목만 수거앱에 다시 보낼지 바로 묻습니다(안 보내려면 닫기).', b: '💾 고친 내용으로 저장', f: '전부 지우려면 ▼더보기의 🗑 수거내역 초기화' },
 };
 function openAlreadyCollectedPanel(mode) {
   _alreadyMode = mode === 'edit' ? 'edit' : 'new';
+  _swapPick = {};
   const rec = receipts[editTargetId];
   if (!rec) return;
   const items = getRecordItems(rec);
@@ -15091,12 +15093,24 @@ function openAlreadyCollectedPanel(mode) {
       </div>`;
     }
     // [9_22] 체크만으론 "가져온 것"인지 "가져갈 것"인지 헷갈린다 → 오른쪽에 가져옴/못 가져옴 글자를 같이 보여준다
+    // [11_12] 품목변경 — 미수거(체크 해제)한 줄에만 버튼이 보인다. 누르면 가격표에서 가져올 품목을 고른다.
+    const origAmt = parseInt(String(it.금액 || '').replace(/[^0-9]/g, '')) || 0;
+    const opts = PRICE_LIST.map((p, k) => `<option value="${k}">${esc(p.name)} · ${(+p.price || 0).toLocaleString()}원</option>`).join('');
     return `
     <label onclick="setTimeout(()=>syncAlreadyChkLabel(${i}),0)" style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:15px;border-bottom:1px solid #e9d5ff;cursor:pointer;">
       <input type="checkbox" class="em-already-chk" data-idx="${i}" checked style="width:22px;height:22px;">
       <span style="flex:1;">${label}</span>
       <span id="em-already-lab-${i}" style="font-size:13px;font-weight:900;color:#16a34a;white-space:nowrap;">✅ 수거함</span>
-    </label>`;
+    </label>
+    <div id="em-swap-${i}" style="display:none;padding:0 0 10px 32px;border-bottom:1px solid #e9d5ff;">
+      <button type="button" onclick="swapToggle(${i})" style="font:inherit;font-size:13px;font-weight:900;border:1.5px solid #6d28d9;background:#fff;color:#6d28d9;border-radius:9px;padding:5px 10px;cursor:pointer;">🔁 품목변경</button>
+      <div id="em-swap-box-${i}" hidden style="margin-top:8px;display:grid;gap:6px;">
+        <select id="em-swap-sel-${i}" data-orig="${origAmt}" onchange="swapPick(${i})" style="font-size:14px;padding:7px;border-radius:8px;border:1.5px solid #c4b5fd;max-width:100%;">
+          <option value="">— 가져갈 품목 고르기 —</option>${opts}
+        </select>
+        <div id="em-swap-diff-${i}" style="font-size:13.5px;font-weight:800;color:#5b21b6;"></div>
+      </div>
+    </div>`;
   }).join('')
     + `<div style="font-size:13px;color:#5b21b6;margin-top:10px;font-weight:800;">${_ALREADY_TXT[_alreadyMode].f}</div>`;
   const tx = _ALREADY_TXT[_alreadyMode];
@@ -15115,6 +15129,24 @@ function syncAlreadyChkLabel(i) {
   if (!c || !lab) return;
   lab.textContent = c.checked ? '✅ 수거함' : '❌ 미수거함';
   lab.style.color = c.checked ? '#16a34a' : '#dc2626';
+  syncSwapBtn(i);
+}
+// [11_12] 품목변경 버튼은 수거내역 수정 창에서 미수거 줄에만
+function syncSwapBtn(i) {
+  const c = document.querySelector(`.em-already-chk[data-idx="${i}"]`), w = document.getElementById(`em-swap-${i}`);
+  if (!c || !w) return;
+  const show = _alreadyMode === 'edit' && !c.checked;
+  w.style.display = show ? '' : 'none';
+  if (!show) { delete _swapPick[i]; const b = document.getElementById(`em-swap-box-${i}`); if (b) b.hidden = true; }
+}
+function swapToggle(i) { const b = document.getElementById(`em-swap-box-${i}`); if (b) b.hidden = !b.hidden; }
+function swapPick(i) {
+  const sel = document.getElementById(`em-swap-sel-${i}`), d = document.getElementById(`em-swap-diff-${i}`);
+  const p = sel && sel.value !== '' ? PRICE_LIST[+sel.value] : null;
+  if (!p) { delete _swapPick[i]; if (d) d.textContent = ''; return; }
+  _swapPick[i] = p;
+  const diff = (+p.price || 0) - (parseInt(sel.dataset.orig) || 0);
+  if (d) d.textContent = diff > 0 ? `총금액 +${diff.toLocaleString()}원 (추가금) — 저장 뒤 [추가금액] 문자` : diff < 0 ? `총금액 ${diff.toLocaleString()}원 (환불) — 저장 뒤 [환불처리]` : '금액 같음 · 추가·환불 없음';
 }
 function closeAlreadyCollectedPanel() {
   const box = document.getElementById('em-already-panel');
@@ -15125,7 +15157,24 @@ async function submitAlreadyCollected() {
   if (!(await saveFormFirst())) return;   // [9_23]
   const rec = receipts[editTargetId];
   if (!rec) return;
-  const items = getRecordItems(rec);
+  let items = getRecordItems(rec);
+  // [11_12] 품목변경: 고른 품목을 같은 자리(같은 번호)에 넣는다 — 수거 기록·환불 표시는 자리가 그대로라 안 밀린다
+  const swapTags = [], swapUp = {};
+  if (_alreadyMode === 'edit' && Object.keys(_swapPick).length) {
+    items = items.map((it, i) => {
+      const p = _swapPick[i]; if (!p) return it;
+      const ni = { 품목: p.name, 금액: (+p.price || 0).toLocaleString(), 개수: '1' };
+      swapTags.push(`[품목변경 ${fmtDate(toLocalYMD(new Date()))} ${getOpName() || ''} ${it.품목}→${p.name}]`);
+      return ni;
+    });
+    items.forEach((it, i) => {
+      swapUp[`${DB_RECEIPT}/${editTargetId}/품목${i + 1}`] = it.품목;
+      swapUp[`${DB_RECEIPT}/${editTargetId}/금액${i + 1}`] = it.금액;
+      swapUp[`${DB_RECEIPT}/${editTargetId}/개수${i + 1}`] = it.개수 || '';
+    });
+    swapUp[`${DB_RECEIPT}/${editTargetId}/_items`] = items;
+    swapUp[`${DB_RECEIPT}/${editTargetId}/총금액`] = items.reduce((s, it) => s + (parseInt(String(it.금액 || '').replace(/[^0-9]/g, '')) || 0), 0).toLocaleString();
+  }
   // [9_26] 각 품목의 "실제 수거 개수"를 숫자로 모은다 — 1개짜리는 체크박스(0 또는 1),
   //   여러 개짜리는 숫자입력칸(0~전체) 값을 그대로 쓴다.
   const collected = items.map((it, i) => {
@@ -15151,14 +15200,16 @@ async function submitAlreadyCollected() {
     .map(x => x.full > 1 ? `${x.it.품목} ${x.got}/${x.full}개` : x.it.품목).join(', ');
   if (_alreadyMode === 'edit') {   // [10_15a] 완료 취소 — 품목별 수정
     if (!rec._work상태) { showToast('ℹ️ 수거 기록이 없는 건입니다'); return; }
-    const up = {};
+    const up = Object.assign({}, swapUp);
     up[`${DB_RECEIPT}/${editTargetId}/_work상태`]   = st;
     up[`${DB_RECEIPT}/${editTargetId}/_work품목`]   = collected;
     up[`${DB_RECEIPT}/${editTargetId}/_work미수거`] = missDesc || null;
     const tag = `[수거내역 수정 ${fmtDate(toLocalYMD(new Date()))} ${getOpName() || ''}]`;
-    const note = String(rec.비고 || '').trim();
+    let note = String(rec.비고 || '').trim();
+    swapTags.forEach(t => { note = note ? `${note} ${t}` : t; });
     up[`${DB_RECEIPT}/${editTargetId}/비고`] = note.includes(tag) ? note : (note ? `${note} ${tag}` : tag);
     return db.ref().update(up).then(() => {
+      _swapPick = {};
       // [11_12] 서버 알림을 기다리지 않고 화면의 이 건에도 바로 반영 (창·목록·재작업 창이 옛 상태로 보이지 않게)
       const pre = `${DB_RECEIPT}/${editTargetId}/`;
       [rec, RC_FULL && RC_FULL[editTargetId]].forEach(o => { if (!o) return; Object.keys(up).forEach(k => { const f = k.slice(pre.length); if (up[k] === null) delete o[f]; else o[f] = up[k]; }); });
